@@ -59,38 +59,43 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const menuItems: MenuItem[] = [
     { 
       label: '首页', 
-      path: '/dashboard', 
+      path: '/main/dashboard', 
       icon: <FiHome size={20} /> 
     },
     { 
       label: '文件上传', 
-      path: '/files/upload', 
+      path: '/main/files/upload', 
       icon: <FiUpload size={20} /> 
     },
     { 
       label: '文件查询', 
-      path: '/files', 
+      path: '/main/files', 
       icon: <FiSearch size={20} /> 
     },
     { 
       label: '后台管理', 
-      path: '/admin', 
+      path: '/main/admin', 
       icon: <FiSettings size={20} />,
       permissions: ['admin'] // 仅管理员可见
     },
     { 
       label: '审计日志', 
-      path: '/admin/audit', 
+      path: '/main/admin/audit', 
       icon: <FiList size={20} />,
       permissions: ['admin'] // 仅管理员可见
     },
     { 
       label: '系统设置', 
-      path: '/admin/settings', 
+      path: '/main/admin/settings', 
       icon: <FiSettings size={20} />,
       permissions: ['admin'] // 仅管理员可见
     },
   ];
+
+  // 检查当前路径是否匹配菜单项路径
+  const isActiveRoute = (menuPath: string) => {
+    return pathname === menuPath || pathname?.startsWith(menuPath + '/');
+  };
 
   useEffect(() => {
     // 从 localStorage 获取用户信息
@@ -195,8 +200,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <Button
                   key={index}
                   leftIcon={item.icon}
-                  variant={pathname === item.path ? 'solid' : 'ghost'}
-                  colorScheme={pathname === item.path ? 'blue' : 'gray'}
+                  variant={isActiveRoute(item.path) ? 'solid' : 'ghost'}
+                  colorScheme={isActiveRoute(item.path) ? 'blue' : 'gray'}
                   justifyContent="flex-start"
                   onClick={() => {
                     router.push(item.path);
@@ -226,9 +231,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <Button
               key={index}
               leftIcon={item.icon}
-              rightIcon={pathname === item.path ? <FiChevronRight /> : undefined}
-              variant={pathname === item.path ? 'solid' : 'ghost'}
-              colorScheme={pathname === item.path ? 'blue' : 'gray'}
+              rightIcon={isActiveRoute(item.path) ? <FiChevronRight /> : undefined}
+              variant={isActiveRoute(item.path) ? 'solid' : 'ghost'}
+              colorScheme={isActiveRoute(item.path) ? 'blue' : 'gray'}
               justifyContent="flex-start"
               onClick={() => router.push(item.path)}
             >

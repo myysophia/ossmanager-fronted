@@ -59,7 +59,7 @@ export default function LoginPage() {
         isClosable: true,
       });
 
-      router.push('/dashboard');
+      router.push('/main/dashboard');
     } catch (error) {
       toast({
         title: '登录失败',
