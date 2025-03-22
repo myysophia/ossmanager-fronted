@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
 import {
   Box,
   Flex,
@@ -24,7 +23,7 @@ import {
   useColorModeValue,
   MenuButton,
   MenuList,
-  MenuItem,
+  MenuItem as ChakraMenuItem
 } from '@chakra-ui/react';
 import { 
   FiMenu, 
@@ -35,102 +34,365 @@ import {
   FiList,
   FiUser,
   FiLogOut,
-  FiChevronRight
+  FiChevronRight,
+  FiChevronLeft,
+  FiDatabase
 } from 'react-icons/fi';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-interface MenuItem {
+interface MenuItemType {
   label: string;
   path: string;
   icon: React.ReactElement;
-  permissions?: string[]; // 权限控制，根据用户角色显示菜单
+  permissions?: string[];
 }
 
-export default function MainLayout({ children }: MainLayoutProps) {
+// 菜单项定义 - 静态常量，避免重新创建
+const MENU_ITEMS: MenuItemType[] = [
+  { 
+    label: '首页', 
+    path: '/main/dashboard', 
+    icon: <FiHome size={18} /> 
+  },
+  { 
+    label: '文件上传', 
+    path: '/main/files/upload', 
+    icon: <FiUpload size={18} /> 
+  },
+  { 
+    label: '文件查询', 
+    path: '/main/files', 
+    icon: <FiSearch size={18} /> 
+  },
+  { 
+    label: '后台管理', 
+    path: '/main/admin', 
+    icon: <FiSettings size={18} />,
+    permissions: ['admin']
+  },
+  { 
+    label: '审计日志', 
+    path: '/main/admin/audit', 
+    icon: <FiList size={18} />,
+    permissions: ['admin']
+  },
+  { 
+    label: '系统设置', 
+    path: '/main/admin/settings', 
+    icon: <FiSettings size={18} />,
+    permissions: ['admin']
+  },
+];
+
+// 拆分顶部导航为独立组件
+const TopNav = React.memo(({ 
+  onMobileMenuOpen, 
+  user, 
+  onNavigate, 
+  onLogout 
+}: { 
+  onMobileMenuOpen: () => void;
+  user: any; 
+  onNavigate: (path: string) => void;
+  onLogout: () => void;
+}) => {
+  const bgColor = useColorModeValue('white', 'gray.800');
+  
+  return (
+    <Flex
+      as="header"
+      position="fixed"
+      w="full"
+      h="60px"
+      px={4}
+      bg={bgColor}
+      boxShadow="sm"
+      zIndex={10}
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <HStack spacing={4}>
+        <IconButton
+          aria-label="菜单"
+          icon={<FiMenu />}
+          display={{ base: 'flex', md: 'none' }}
+          onClick={onMobileMenuOpen}
+          variant="ghost"
+        />
+        <HStack 
+          spacing={2} 
+          cursor="pointer"
+          onClick={() => onNavigate('/main/dashboard')}
+        >
+          <Box 
+            bg="blue.500" 
+            p={1.5} 
+            borderRadius="md" 
+            color="white"
+          >
+            <FiDatabase size={16} />
+          </Box>
+          <Text 
+            fontSize="lg" 
+            fontWeight="bold"
+          >
+            OSS 文件管理系统
+          </Text>
+        </HStack>
+      </HStack>
+
+      {user && (
+        <Menu>
+          <MenuButton
+            as={Button}
+            variant="ghost"
+            rounded="full"
+          >
+            <HStack>
+              <Avatar 
+                size="sm" 
+                name={user.name || user.username} 
+                bg="blue.500"
+              />
+              <Text display={{ base: 'none', md: 'block' }}>
+                {user.name || user.username}
+              </Text>
+            </HStack>
+          </MenuButton>
+          <MenuList>
+            <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
+            <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem>
+            <Divider />
+            <ChakraMenuItem 
+              icon={<FiLogOut />} 
+              onClick={onLogout}
+              color="red.500"
+            >
+              退出登录
+            </ChakraMenuItem>
+          </MenuList>
+        </Menu>
+      )}
+    </Flex>
+  );
+});
+
+TopNav.displayName = 'TopNav';
+
+// 拆分为菜单项组件
+const MenuItemButton = React.memo(({ 
+  item, 
+  isActive, 
+  isLoading, 
+  isCollapsed, 
+  onClick 
+}: { 
+  item: MenuItemType; 
+  isActive: boolean; 
+  isLoading: boolean;
+  isCollapsed: boolean;
+  onClick: () => void;
+}) => {
+  return (
+    <Button
+      leftIcon={item.icon}
+      variant="ghost"
+      justifyContent={isCollapsed ? "center" : "flex-start"}
+      h="40px"
+      p={isCollapsed ? 0 : 3}
+      color={isActive ? "blue.500" : undefined}
+      fontWeight={isActive ? "bold" : "normal"}
+      isLoading={isLoading && isActive}
+      onClick={onClick}
+      title={isCollapsed ? item.label : undefined}
+    >
+      {!isCollapsed && item.label}
+    </Button>
+  );
+});
+
+MenuItemButton.displayName = 'MenuItemButton';
+
+// 拆分为移动端抽屉菜单组件
+const MobileDrawer = React.memo(({ 
+  isOpen, 
+  onClose, 
+  items,
+  isActiveRoute,
+  isLoading,
+  onNavigate 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void;
+  items: MenuItemType[];
+  isActiveRoute: (path: string) => boolean;
+  isLoading: boolean;
+  onNavigate: (path: string) => void;
+}) => {
+  return (
+    <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+      <DrawerOverlay />
+      <DrawerContent>
+        <DrawerCloseButton />
+        <DrawerHeader borderBottomWidth="1px">菜单</DrawerHeader>
+        <DrawerBody>
+          <VStack spacing={2} align="stretch" pt={2}>
+            {items.map((item, index) => (
+              <Button
+                key={index}
+                leftIcon={item.icon}
+                variant="ghost"
+                justifyContent="flex-start"
+                isLoading={isLoading && isActiveRoute(item.path)}
+                color={isActiveRoute(item.path) ? "blue.500" : undefined}
+                fontWeight={isActiveRoute(item.path) ? "bold" : "normal"}
+                onClick={() => {
+                  onNavigate(item.path);
+                  onClose();
+                }}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </VStack>
+        </DrawerBody>
+      </DrawerContent>
+    </Drawer>
+  );
+});
+
+MobileDrawer.displayName = 'MobileDrawer';
+
+// 拆分为桌面端侧边栏组件
+const DesktopSidebar = React.memo(({ 
+  isCollapsed, 
+  onToggle,
+  items,
+  isActiveRoute,
+  isLoading,
+  onNavigate 
+}: { 
+  isCollapsed: boolean; 
+  onToggle: () => void;
+  items: MenuItemType[];
+  isActiveRoute: (path: string) => boolean;
+  isLoading: boolean;
+  onNavigate: (path: string) => void;
+}) => {
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
+  return (
+    <Box
+      position="fixed"
+      h="calc(100vh - 60px)"
+      w={isCollapsed ? "60px" : "220px"}
+      mt="60px"
+      bg={bgColor}
+      borderRightWidth="1px"
+      borderColor={borderColor}
+      display={{ base: 'none', md: 'block' }}
+      transition="width 0.3s ease"
+      zIndex={5}
+    >
+      <Flex direction="column" h="full">
+        <IconButton
+          aria-label={isCollapsed ? "展开菜单" : "收起菜单"}
+          icon={isCollapsed ? <FiChevronRight /> : <FiChevronLeft />}
+          size="sm"
+          position="absolute"
+          top="4"
+          right="2"
+          variant="ghost"
+          onClick={onToggle}
+        />
+
+        <VStack 
+          spacing={1} 
+          align="stretch" 
+          p={3} 
+          pt={10}
+        >
+          {items.map((item, index) => (
+            <MenuItemButton
+              key={index}
+              item={item}
+              isActive={isActiveRoute(item.path)}
+              isLoading={isLoading && isActiveRoute(item.path)}
+              isCollapsed={isCollapsed}
+              onClick={() => onNavigate(item.path)}
+            />
+          ))}
+        </VStack>
+      </Flex>
+    </Box>
+  );
+});
+
+DesktopSidebar.displayName = 'DesktopSidebar';
+
+// 主布局组件
+const MainLayout = ({ children }: MainLayoutProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [user, setUser] = useState<any>(null);
-
-  // 菜单项配置
-  const menuItems: MenuItem[] = [
-    { 
-      label: '首页', 
-      path: '/main/dashboard', 
-      icon: <FiHome size={20} /> 
-    },
-    { 
-      label: '文件上传', 
-      path: '/main/files/upload', 
-      icon: <FiUpload size={20} /> 
-    },
-    { 
-      label: '文件查询', 
-      path: '/main/files', 
-      icon: <FiSearch size={20} /> 
-    },
-    { 
-      label: '后台管理', 
-      path: '/main/admin', 
-      icon: <FiSettings size={20} />,
-      permissions: ['admin'] // 仅管理员可见
-    },
-    { 
-      label: '审计日志', 
-      path: '/main/admin/audit', 
-      icon: <FiList size={20} />,
-      permissions: ['admin'] // 仅管理员可见
-    },
-    { 
-      label: '系统设置', 
-      path: '/main/admin/settings', 
-      icon: <FiSettings size={20} />,
-      permissions: ['admin'] // 仅管理员可见
-    },
-  ];
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // 检查当前路径是否匹配菜单项路径
-  const isActiveRoute = (menuPath: string) => {
+  const isActiveRoute = useCallback((menuPath: string) => {
     return pathname === menuPath || pathname?.startsWith(menuPath + '/');
-  };
+  }, [pathname]);
 
-  useEffect(() => {
-    // 从 localStorage 获取用户信息
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-      } catch (error) {
-        console.error('解析用户数据失败:', error);
-      }
-    } else {
-      // 如果未登录且不在登录页，则跳转到登录页
-      if (pathname !== '/auth/login' && pathname !== '/auth/register') {
-        router.push('/auth/login');
-      }
+  // 导航处理函数
+  const navigateTo = useCallback((path: string) => {
+    if (path === pathname) return; // 避免相同路径的重复导航
+    
+    setIsLoading(true);
+    try {
+      router.push(path);
+    } catch (error) {
+      console.error('[导航错误]:', error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 200);
     }
-  }, [pathname, router]);
+  }, [router, pathname]);
 
-  const handleLogout = () => {
-    // 清除本地存储的用户信息和 token
+  // 处理登出
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
-    // 跳转到登录页
     router.push('/auth/login');
-  };
+  }, [router]);
 
-  // 过滤菜单项，根据用户权限显示
-  const filteredMenuItems = menuItems.filter(item => {
-    // 临时注释掉权限检查，使所有菜单项都可见
-    // if (!item.permissions) return true;
-    // return user?.role && item.permissions.includes(user.role);
-    return true; // 临时允许所有菜单项都可见
-  });
+  // 切换侧边栏状态
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  // 只在组件挂载时获取用户信息
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const userData = JSON.parse(userStr);
+        setUser(userData);
+      } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
+        router.push('/auth/login');
+      }
+    } catch (error) {
+      console.error('[用户数据错误]:', error);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      router.push('/auth/login');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 登录页或注册页不显示布局
   if (pathname === '/auth/login' || pathname === '/auth/register') {
@@ -139,114 +401,46 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
   return (
     <Box minH="100vh">
-      {/* 顶部导航栏 */}
-      <Flex
-        as="header"
-        position="fixed"
-        w="full"
-        h="60px"
-        px={4}
-        bg={useColorModeValue('white', 'gray.800')}
-        boxShadow="sm"
-        zIndex={10}
-        alignItems="center"
-        justifyContent="space-between"
+      {/* 顶部导航 */}
+      <TopNav 
+        onMobileMenuOpen={onOpen} 
+        user={user} 
+        onNavigate={navigateTo}
+        onLogout={handleLogout} 
+      />
+
+      {/* 移动端菜单 */}
+      <MobileDrawer 
+        isOpen={isOpen} 
+        onClose={onClose}
+        items={MENU_ITEMS}
+        isActiveRoute={isActiveRoute}
+        isLoading={isLoading}
+        onNavigate={navigateTo}
+      />
+
+      {/* 桌面侧边栏 */}
+      <DesktopSidebar 
+        isCollapsed={isSidebarCollapsed}
+        onToggle={toggleSidebar}
+        items={MENU_ITEMS}
+        isActiveRoute={isActiveRoute}
+        isLoading={isLoading}
+        onNavigate={navigateTo}
+      />
+
+      {/* 主内容区域 */}
+      <Box 
+        ml={{ base: 0, md: isSidebarCollapsed ? "60px" : "220px" }} 
+        pt="60px" 
+        transition="margin-left 0.3s ease"
       >
-        <HStack spacing={4}>
-          <IconButton
-            aria-label="打开菜单"
-            icon={<FiMenu />}
-            display={{ base: 'flex', md: 'none' }}
-            onClick={onOpen}
-            variant="ghost"
-          />
-          <Text fontSize="xl" fontWeight="bold">OSS 文件管理系统</Text>
-        </HStack>
-
-        {/* 用户菜单 */}
-        {user && (
-          <Menu>
-            <MenuButton
-              as={Button}
-              variant="ghost"
-              rounded="full"
-              cursor="pointer"
-              minW={0}
-            >
-              <HStack>
-                <Avatar size="sm" name={user.name || user.username} src={user.avatar} />
-                <Text display={{ base: 'none', md: 'block' }}>{user.name || user.username}</Text>
-              </HStack>
-            </MenuButton>
-            <MenuList>
-              <MenuItem icon={<FiUser />}>个人资料</MenuItem>
-              <MenuItem icon={<FiSettings />}>设置</MenuItem>
-              <Divider />
-              <MenuItem icon={<FiLogOut />} onClick={handleLogout}>退出登录</MenuItem>
-            </MenuList>
-          </Menu>
-        )}
-      </Flex>
-
-      {/* 移动端侧边菜单抽屉 */}
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
-        <DrawerOverlay />
-        <DrawerContent>
-          <DrawerCloseButton />
-          <DrawerHeader>菜单</DrawerHeader>
-          <DrawerBody>
-            <VStack spacing={2} align="stretch">
-              {filteredMenuItems.map((item, index) => (
-                <Button
-                  key={index}
-                  leftIcon={item.icon}
-                  variant={isActiveRoute(item.path) ? 'solid' : 'ghost'}
-                  colorScheme={isActiveRoute(item.path) ? 'blue' : 'gray'}
-                  justifyContent="flex-start"
-                  onClick={() => {
-                    router.push(item.path);
-                    onClose();
-                  }}
-                >
-                  {item.label}
-                </Button>
-              ))}
-            </VStack>
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
-
-      {/* 桌面端侧边菜单 */}
-      <Box
-        position="fixed"
-        h="calc(100vh - 60px)"
-        w="240px"
-        mt="60px"
-        bg={useColorModeValue('white', 'gray.800')}
-        boxShadow="sm"
-        display={{ base: 'none', md: 'block' }}
-      >
-        <VStack spacing={2} align="stretch" p={4}>
-          {filteredMenuItems.map((item, index) => (
-            <Button
-              key={index}
-              leftIcon={item.icon}
-              rightIcon={isActiveRoute(item.path) ? <FiChevronRight /> : undefined}
-              variant={isActiveRoute(item.path) ? 'solid' : 'ghost'}
-              colorScheme={isActiveRoute(item.path) ? 'blue' : 'gray'}
-              justifyContent="flex-start"
-              onClick={() => router.push(item.path)}
-            >
-              {item.label}
-            </Button>
-          ))}
-        </VStack>
-      </Box>
-
-      {/* 主要内容区域 */}
-      <Box ml={{ base: 0, md: '240px' }} pt="60px" minH="calc(100vh - 60px)">
-        <Box p={4}>{children}</Box>
+        <Box p={4}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );
-} 
+};
+
+export default MainLayout; 
