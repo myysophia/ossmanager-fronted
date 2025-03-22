@@ -46,27 +46,10 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [isPublic, setIsPublic] = useState(false);
-  const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
-  const [selectedStorage, setSelectedStorage] = useState<string>('');
   const toast = useToast();
 
   useEffect(() => {
-    // 模拟获取存储配置
-    const fetchStorageConfigs = async () => {
-      // 在实际应用中，这里应该是获取存储配置的API调用
-      setTimeout(() => {
-        const mockConfigs = [
-          { id: '1', name: '默认存储', type: 'local' },
-          { id: '2', name: '阿里云OSS', type: 'oss' },
-        ];
-        setStorageConfigs(mockConfigs);
-        // 默认选择第一个
-        setSelectedStorage(mockConfigs[0].id);
-      }, 500);
-    };
-    
-    fetchStorageConfigs();
+    // 可以在此处添加其他初始化逻辑
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -119,16 +102,6 @@ export default function UploadPage() {
       return;
     }
     
-    if (!selectedStorage) {
-      toast({
-        title: '请选择存储配置',
-        status: 'warning',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-    
     setUploading(true);
     
     // 模拟文件上传进度
@@ -138,8 +111,6 @@ export default function UploadPage() {
       
       const formData = new FormData();
       formData.append('file', file.file);
-      formData.append('storageId', selectedStorage);
-      formData.append('isPublic', isPublic.toString());
       formData.append('tags', JSON.stringify(tags));
       
       try {
@@ -228,35 +199,12 @@ export default function UploadPage() {
         </Box>
 
         <FormControl>
-          <FormLabel>存储配置</FormLabel>
-          <Select
-            value={selectedStorage}
-            onChange={(e) => setSelectedStorage(e.target.value)}
-            placeholder="选择存储配置"
-          >
-            {storageConfigs.map((config) => (
-              <option key={config.id} value={config.id}>
-                {config.name} ({config.type})
-              </option>
-            ))}
-          </Select>
-        </FormControl>
-
-        <FormControl display="flex" alignItems="center">
-          <FormLabel mb="0">公开访问</FormLabel>
-          <Switch
-            isChecked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-          />
-        </FormControl>
-
-        <FormControl>
           <FormLabel>标签</FormLabel>
           <HStack>
             <Input
               value={tag}
               onChange={(e) => setTag(e.target.value)}
-              placeholder="输入标签"
+              placeholder="添加标签"
               onKeyPress={(e) => e.key === 'Enter' && addTag()}
             />
             <IconButton
@@ -265,14 +213,21 @@ export default function UploadPage() {
               onClick={addTag}
             />
           </HStack>
-          <Flex mt={2} flexWrap="wrap" gap={2}>
-            {tags.map((tag) => (
-              <Tag key={tag} size="md" colorScheme="blue">
+
+          <Box mt={2}>
+            {tags.map((tag, index) => (
+              <Tag
+                key={index}
+                borderRadius="full"
+                variant="solid"
+                colorScheme="blue"
+                m={1}
+              >
                 <TagLabel>{tag}</TagLabel>
                 <TagCloseButton onClick={() => removeTag(tag)} />
               </Tag>
             ))}
-          </Flex>
+          </Box>
         </FormControl>
 
         {files.length > 0 && (

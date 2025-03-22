@@ -34,6 +34,7 @@ interface File {
   type: string;
   uploadDate: string;
   uploadBy: string;
+  md5: string;
 }
 
 export default function FileListPage() {
@@ -54,6 +55,7 @@ export default function FileListPage() {
           type: 'pdf',
           uploadDate: '2023-06-15',
           uploadBy: '张三',
+          md5: 'a1b2c3d4e5f67890',
         },
         {
           id: '2',
@@ -62,6 +64,7 @@ export default function FileListPage() {
           type: 'xlsx',
           uploadDate: '2023-06-14',
           uploadBy: '李四',
+          md5: 'b2c3d4e5f678901a',
         },
         {
           id: '3',
@@ -70,6 +73,7 @@ export default function FileListPage() {
           type: 'docx',
           uploadDate: '2023-06-13',
           uploadBy: '王五',
+          md5: 'c3d4e5f6789012ab',
         },
         {
           id: '4',
@@ -78,6 +82,7 @@ export default function FileListPage() {
           type: 'jpg',
           uploadDate: '2023-06-12',
           uploadBy: '赵六',
+          md5: 'd4e5f67890123abc',
         },
       ];
       setFiles(mockFiles);
@@ -133,6 +138,7 @@ export default function FileListPage() {
             type: 'pdf',
             uploadDate: '2023-06-15',
             uploadBy: '张三',
+            md5: 'a1b2c3d4e5f67890',
           },
           // ... (其他文件)
         ];
@@ -213,6 +219,7 @@ export default function FileListPage() {
                       <Th>文件名</Th>
                       <Th>大小</Th>
                       <Th>类型</Th>
+                      <Th>MD5</Th>
                       <Th>上传日期</Th>
                       <Th>上传者</Th>
                       <Th>操作</Th>
@@ -230,6 +237,7 @@ export default function FileListPage() {
                         <Td>{file.name}</Td>
                         <Td>{file.size}</Td>
                         <Td>{file.type}</Td>
+                        <Td>{file.md5}</Td>
                         <Td>{file.uploadDate}</Td>
                         <Td>{file.uploadBy}</Td>
                         <Td>
