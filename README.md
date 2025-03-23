@@ -34,3 +34,26 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## 环境配置
+
+项目支持多种环境配置，详细说明请查看 [环境配置说明](./docs/环境配置说明.md)。
+
+### 主要环境
+
+- **开发环境** - 连接本地后端API（默认端口8080）
+- **测试环境** - 连接测试服务器API
+- **生产环境** - 使用相对路径API（通过前端代理转发请求）
+
+### 快速开始
+
+```bash
+# 开发环境
+npm run dev
+
+# 测试环境
+npm run dev:test
+
+# 构建生产环境
+npm run build:prod
+```

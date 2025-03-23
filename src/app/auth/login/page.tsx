@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -17,6 +17,7 @@ import {
 } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
 import { LoginRequest } from '@/types/auth';
+import { AuthAPI } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,33 +34,28 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      // 使用AuthAPI服务发送请求到后端8080端口
+      const response = await AuthAPI.login({
+        username: formData.username,
+        password: formData.password,
       });
 
-      if (!response.ok) {
-        throw new Error('登录失败');
+      // 确认我们收到了token和用户数据
+      if (response && response.token) {
+        toast({
+          title: '登录成功',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+
+        // 短暂延迟，让toast显示完成
+        setTimeout(() => {
+          router.push('/main/dashboard');
+        }, 300);
+      } else {
+        throw new Error('登录响应缺少必要数据');
       }
-
-      const data = await response.json();
-      
-      // 存储token和用户信息
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      toast({
-        title: '登录成功',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-
-      router.push('/main/dashboard');
     } catch (error) {
       toast({
         title: '登录失败',

@@ -36,8 +36,11 @@ import {
   FiLogOut,
   FiChevronRight,
   FiChevronLeft,
-  FiDatabase
+  FiDatabase,
+  FiMoon,
+  FiSun
 } from 'react-icons/fi';
+import { ColorModeToggle } from '../common/ColorModeToggle';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -66,6 +69,11 @@ const MENU_ITEMS: MenuItemType[] = [
     label: '文件查询', 
     path: '/main/files', 
     icon: <FiSearch size={18} /> 
+  },
+  { 
+    label: 'API示例', 
+    path: '/api-example', 
+    icon: <FiDatabase size={18} /> 
   },
   { 
     label: '后台管理', 
@@ -128,7 +136,7 @@ const TopNav = React.memo(({
           onClick={() => onNavigate('/main/dashboard')}
         >
           <Box 
-            bg="blue.500" 
+            bg="primary.500" 
             p={1.5} 
             borderRadius="md" 
             color="white"
@@ -145,36 +153,39 @@ const TopNav = React.memo(({
       </HStack>
 
       {user && (
-        <Menu>
-          <MenuButton
-            as={Button}
-            variant="ghost"
-            rounded="full"
-          >
-            <HStack>
-              <Avatar 
-                size="sm" 
-                name={user.name || user.username} 
-                bg="blue.500"
-              />
-              <Text display={{ base: 'none', md: 'block' }}>
-                {user.name || user.username}
-              </Text>
-            </HStack>
-          </MenuButton>
-          <MenuList>
-            <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
-            <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem>
-            <Divider />
-            <ChakraMenuItem 
-              icon={<FiLogOut />} 
-              onClick={onLogout}
-              color="red.500"
+        <HStack spacing={2}>
+          <ColorModeToggle size="sm" />
+          <Menu>
+            <MenuButton
+              as={Button}
+              variant="ghost"
+              rounded="full"
             >
-              退出登录
-            </ChakraMenuItem>
-          </MenuList>
-        </Menu>
+              <HStack>
+                <Avatar 
+                  size="sm" 
+                  name={user.name || user.username} 
+                  bg="primary.500"
+                />
+                <Text display={{ base: 'none', md: 'block' }}>
+                  {user.name || user.username}
+                </Text>
+              </HStack>
+            </MenuButton>
+            <MenuList>
+              <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
+              <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem>
+              <Divider />
+              <ChakraMenuItem 
+                icon={<FiLogOut />} 
+                onClick={onLogout}
+                color="red.500"
+              >
+                退出登录
+              </ChakraMenuItem>
+            </MenuList>
+          </Menu>
+        </HStack>
       )}
     </Flex>
   );

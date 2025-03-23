@@ -3,45 +3,57 @@
 import { useState, useEffect } from 'react';
 import {
   Box,
+  Button,
   VStack,
-  HStack,
+  Text,
   Tabs,
   TabList,
   TabPanels,
   Tab,
   TabPanel,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Button,
-  IconButton,
+  SimpleGrid,
+  Card,
+  CardHeader,
+  CardBody,
+  CardFooter,
+  Heading,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
-  useToast,
-  Text,
-  Badge,
-  useColorModeValue,
+  IconButton,
+  HStack,
   Modal,
   ModalOverlay,
   ModalContent,
   ModalHeader,
-  ModalBody,
   ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  useDisclosure,
   FormControl,
   FormLabel,
   Input,
   Select,
   Switch,
-  useDisclosure,
+  useToast,
+  Divider,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  Tag,
+  TagLabel,
+  TagCloseButton,
+  Flex,
+  Spacer,
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
+import { AdminAPI } from '@/lib/api';
 
-interface StorageConfig {
+// 本地存储配置类型，用于表单和UI展示
+interface LocalStorageConfig {
   id: string;
   name: string;
   type: string;
@@ -53,25 +65,30 @@ interface StorageConfig {
   isDefault: boolean;
 }
 
-interface SystemConfig {
+// 本地系统配置类型，用于表单和UI展示
+interface LocalSystemConfig {
+  siteName: string;
+  description: string;
   maxFileSize: number;
   allowedFileTypes: string[];
   maxUploadConcurrency: number;
-  enablePublicAccess: boolean;
-  retentionDays: number;
+  enableRegistration: boolean;
+  enableCaptcha: boolean;
 }
 
 export default function SettingsPage() {
-  const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
-  const [systemConfig, setSystemConfig] = useState<SystemConfig>({
+  const [storageConfigs, setStorageConfigs] = useState<LocalStorageConfig[]>([]);
+  const [systemConfig, setSystemConfig] = useState<LocalSystemConfig>({
+    siteName: '',
+    description: '',
     maxFileSize: 100,
     allowedFileTypes: [],
     maxUploadConcurrency: 5,
-    enablePublicAccess: false,
-    retentionDays: 30,
+    enableRegistration: false,
+    enableCaptcha: false,
   });
   const [loading, setLoading] = useState(false);
-  const [selectedConfig, setSelectedConfig] = useState<StorageConfig | null>(null);
+  const [selectedConfig, setSelectedConfig] = useState<LocalStorageConfig | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     type: '',
@@ -96,11 +113,7 @@ export default function SettingsPage() {
   const fetchStorageConfigs = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/admin/storage-configs');
-      if (!response.ok) {
-        throw new Error('获取存储配置失败');
-      }
-      const data = await response.json();
+      const data = await AdminAPI.getStorageConfigs();
       setStorageConfigs(data);
     } catch (error) {
       toast({
@@ -117,11 +130,7 @@ export default function SettingsPage() {
 
   const fetchSystemConfig = async () => {
     try {
-      const response = await fetch('/api/admin/system-config');
-      if (!response.ok) {
-        throw new Error('获取系统配置失败');
-      }
-      const data = await response.json();
+      const data = await AdminAPI.getSystemConfig();
       setSystemConfig(data);
     } catch (error) {
       toast({
@@ -136,17 +145,16 @@ export default function SettingsPage() {
 
   const handleCreateConfig = async () => {
     try {
-      const response = await fetch('/api/admin/storage-configs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      await AdminAPI.createStorageConfig({
+        name: formData.name,
+        storage_type: formData.type as 'ALIYUN_OSS' | 'AWS_S3' | 'CLOUDFLARE_R2',
+        access_key: formData.accessKey,
+        secret_key: formData.secretKey,
+        bucket: formData.bucket,
+        region: formData.region,
+        endpoint: formData.endpoint,
+        is_default: formData.isDefault,
       });
-
-      if (!response.ok) {
-        throw new Error('创建存储配置失败');
-      }
 
       fetchStorageConfigs();
       onClose();
@@ -181,17 +189,16 @@ export default function SettingsPage() {
     if (!selectedConfig) return;
 
     try {
-      const response = await fetch(`/api/admin/storage-configs/${selectedConfig.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      await AdminAPI.updateStorageConfig(selectedConfig.id, {
+        name: formData.name,
+        storage_type: formData.type as 'ALIYUN_OSS' | 'AWS_S3' | 'CLOUDFLARE_R2',
+        access_key: formData.accessKey,
+        secret_key: formData.secretKey,
+        bucket: formData.bucket,
+        region: formData.region,
+        endpoint: formData.endpoint,
+        is_default: formData.isDefault,
       });
-
-      if (!response.ok) {
-        throw new Error('更新存储配置失败');
-      }
 
       fetchStorageConfigs();
       onClose();
@@ -225,14 +232,8 @@ export default function SettingsPage() {
 
   const handleDeleteConfig = async (configId: string) => {
     try {
-      const response = await fetch(`/api/admin/storage-configs/${configId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('删除存储配置失败');
-      }
-
+      await AdminAPI.deleteStorageConfig(configId);
+      
       fetchStorageConfigs();
       toast({
         title: '删除存储配置成功',
@@ -253,18 +254,15 @@ export default function SettingsPage() {
 
   const handleUpdateSystemConfig = async () => {
     try {
-      const response = await fetch('/api/admin/system-config', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(systemConfig),
+      await AdminAPI.updateSystemConfig({
+        site_name: systemConfig.siteName,
+        site_description: systemConfig.description,
+        max_file_size: systemConfig.maxFileSize,
+        allowed_file_types: systemConfig.allowedFileTypes,
+        enable_registration: systemConfig.enableRegistration,
+        enable_captcha: systemConfig.enableCaptcha,
       });
-
-      if (!response.ok) {
-        throw new Error('更新系统配置失败');
-      }
-
+      
       toast({
         title: '更新系统配置成功',
         status: 'success',
@@ -282,7 +280,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleEditConfig = (config: StorageConfig) => {
+  const handleEditConfig = (config: LocalStorageConfig) => {
     setSelectedConfig(config);
     setFormData({
       name: config.name,

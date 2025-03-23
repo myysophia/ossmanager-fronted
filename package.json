@@ -3,9 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "NODE_OPTIONS=\"--max-old-space-size=8192\" next dev --turbopack",
+    "dev:stable": "NODE_OPTIONS=\"--max-old-space-size=8192\" next dev",
+    "dev:low-memory": "NODE_OPTIONS=\"--max-old-space-size=4096\" next dev",
+    "dev:managed": "node scripts/dev.js",
+    "dev:turbo": "node scripts/dev.js --turbo",
+    "dev:safe": "node scripts/dev.js --low-memory",
+    "dev:test": "NODE_OPTIONS=\"--max-old-space-size=8192\" next dev --env-file=.env.test",
     "build": "next build",
+    "build:test": "next build --env-file=.env.test",
+    "build:prod": "next build --env-file=.env.production",
     "start": "next start",
+    "start:test": "next start --env-file=.env.test",
+    "start:prod": "next start --env-file=.env.production",
     "lint": "next lint"
   },
   "dependencies": {

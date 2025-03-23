@@ -37,9 +37,6 @@ interface AuditLog {
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [moduleFilter, setModuleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
   const [dateRange, setDateRange] = useState({
     from: '',
     to: '',
@@ -116,7 +113,7 @@ export default function AuditLogPage() {
     // 模拟API搜索
     setTimeout(() => {
       // 这里应该是真实的API调用
-      // 使用过滤条件进行搜索
+      // 只使用日期范围进行搜索
       setLoading(false);
       toast({
         title: '搜索完成',
@@ -148,45 +145,9 @@ export default function AuditLogPage() {
           查看和搜索系统操作记录
         </Text>
 
-        {/* 搜索和过滤区域 */}
+        {/* 仅保留日期范围搜索 */}
         <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={6}>
           <HStack flex={1}>
-            <Input
-              placeholder="搜索用户、操作或详情"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Button leftIcon={<FiSearch />} onClick={handleSearch}>
-              搜索
-            </Button>
-          </HStack>
-          
-          <HStack>
-            <Select
-              placeholder="模块"
-              value={moduleFilter}
-              onChange={(e) => setModuleFilter(e.target.value)}
-              maxW="150px"
-            >
-              <option value="认证">认证</option>
-              <option value="存储">存储</option>
-              <option value="设置">设置</option>
-            </Select>
-            
-            <Select
-              placeholder="状态"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              maxW="150px"
-            >
-              <option value="success">成功</option>
-              <option value="failure">失败</option>
-            </Select>
-          </HStack>
-        </Flex>
-
-        <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={6}>
-          <HStack>
             <Text minW="80px">日期范围:</Text>
             <Input
               type="date"
@@ -201,6 +162,9 @@ export default function AuditLogPage() {
               value={dateRange.to}
               onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
             />
+            <Button leftIcon={<FiCalendar />} onClick={handleSearch}>
+              搜索
+            </Button>
           </HStack>
         </Flex>
 
