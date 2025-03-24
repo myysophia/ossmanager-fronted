@@ -1,14 +1,12 @@
 import axios from 'axios';
 import { createStandaloneToast } from '@chakra-ui/react';
-import { getApiConfig } from '../config/api';
 
 const { toast } = createStandaloneToast();
-const apiConfig = getApiConfig();
 
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: apiConfig.baseURL, // 从环境配置获取API基础地址
-  timeout: apiConfig.timeout, // 从环境配置获取超时设置
+  baseURL: 'http://localhost:8080/api/v1',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,17 +15,27 @@ const apiClient = axios.create({
 // 请求拦截器
 apiClient.interceptors.request.use(
   (config) => {
-    // 从本地存储获取token
-    const token = localStorage.getItem('token');
-    
-    // 如果有token，添加到请求头
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // 从 localStorage 获取 token
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+    
+    // 添加请求日志
+    console.log('发送请求:', {
+      url: config.url,
+      method: config.method,
+      baseURL: config.baseURL,
+      headers: config.headers,
+      fullPath: `${config.baseURL}${config.url}`
+    });
     
     return config;
   },
   (error) => {
+    console.error('请求拦截器错误:', error);
     return Promise.reject(error);
   }
 );
@@ -35,92 +43,55 @@ apiClient.interceptors.request.use(
 // 响应拦截器
 apiClient.interceptors.response.use(
   (response) => {
-    // 如果后端返回的不是标准结构，可以在这里进行转换
-    if (response.data) {
-      // 检查业务层面的错误码
-      if (response.data.code !== 0 && response.data.code !== 200) {
-        // 避免显示成功消息的同时显示错误消息
-        if (response.data.message !== '操作成功') {
-          toast({
-            title: '请求失败',
-            description: response.data.message || '未知错误',
-            status: 'error',
-            duration: 3000,
-            isClosable: true,
-          });
+    // 添加响应日志
+    console.log('收到响应:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    });
+    
+    // 检查响应数据结构
+    const responseData = response.data;
+    
+    // 检查是否是标准的API响应格式
+    if (responseData && typeof responseData === 'object') {
+      // 检查是否包含code字段
+      if (responseData.code !== undefined) {
+        // 如果code不为0或200，说明有错误
+        if (responseData.code !== 0 && responseData.code !== 200) {
+          console.error('API响应错误:', responseData);
+          return Promise.reject(new Error(responseData.message || '请求失败'));
         }
-        // 如果这是一个认证相关的请求，我们暂时不拒绝，让调用者处理
-        if (response.config.url && (
-          response.config.url.includes('/auth/login') || 
-          response.config.url.includes('/auth/register')
-        )) {
-          console.log('认证请求返回非零状态码:', response.data);
-          return response;
-        }
-        return Promise.reject(new Error(response.data.message || '请求失败'));
+        // 返回完整的响应数据
+        return responseData;
       }
-      
-      // 避免显示太多成功提示
-      if (
-        response.config.method !== 'get' && 
-        !response.config.url?.includes('/auth/login') && 
-        !response.config.url?.includes('/user/current')
-      ) {
-        toast({
-          title: '操作成功',
-          status: 'success',
-          duration: 2000,
-          isClosable: true,
-        });
-      }
-      
-      return response;
     }
+    
+    // 如果不是标准格式，返回原始响应
     return response;
   },
   (error) => {
-    // 处理网络错误
+    // 添加错误日志
+    console.error('请求失败:', {
+      url: error.config?.url,
+      message: error.message,
+      response: error.response?.data
+    });
+    
+    // 处理错误响应
     if (error.response) {
-      // 服务器返回了错误状态码
       const status = error.response.status;
       
-      if (status === 401) {
-        // 未授权，清除本地token，跳转到登录页
+      if (status === 401 && typeof window !== 'undefined') {
+        // token 过期或无效，清除本地存储并跳转到登录页
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
-        // 如果不是登录页面，再跳转
-        if (!window.location.href.includes('/auth/login')) {
-          window.location.href = '/auth/login';
-          toast({
-            title: '登录已过期',
-            description: '请重新登录',
-            status: 'error',
-            duration: 3000,
-            isClosable: true,
-          });
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
         }
-      } else if (status === 403) {
-        toast({
-          title: '访问被拒绝',
-          description: '没有操作权限',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-      } else if (status === 500) {
-        toast({
-          title: '服务器错误',
-          description: '请稍后再试',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
       } else {
-        // 其他错误状态码
-        const errorMessage = 
-          error.response.data?.message || 
-          '请求失败，请稍后再试';
+        // 显示错误信息
+        const errorMessage = error.response.data?.message || '请求失败';
         toast({
           title: '请求失败',
           description: errorMessage,
@@ -130,7 +101,7 @@ apiClient.interceptors.response.use(
         });
       }
     } else if (error.request) {
-      // 请求发出但没有收到响应
+      // 请求已发出但没有收到响应
       toast({
         title: '网络错误',
         description: '请检查网络连接',
@@ -139,10 +110,10 @@ apiClient.interceptors.response.use(
         isClosable: true,
       });
     } else {
-      // 请求配置出错
+      // 请求设置时发生错误
       toast({
         title: '请求错误',
-        description: '请求配置错误',
+        description: error.message || '发生未知错误',
         status: 'error',
         duration: 3000,
         isClosable: true,

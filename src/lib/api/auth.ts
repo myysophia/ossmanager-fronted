@@ -11,24 +11,46 @@ export const AuthAPI = {
    * @returns 登录响应包含token和用户信息
    */
   login: async (params: LoginParams): Promise<LoginResponse> => {
-    const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', params);
-    
-    // 确保我们得到了有效的响应数据
-    if (!response.data || !response.data.data) {
-      throw new Error('服务器响应缺少数据');
-    }
-    
-    const loginData = response.data.data;
-    
-    // 存储token和用户信息
-    if (loginData.token && loginData.user) {
-      localStorage.setItem('token', loginData.token);
-      localStorage.setItem('user', JSON.stringify(loginData.user));
-      console.log('认证成功，已存储token和用户信息');
+    try {
+      const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', params);
+      
+      // 打印响应数据，方便调试
+      console.log('登录响应数据:', response);
+      
+      // 验证响应数据
+      if (!response.data || typeof response.data !== 'object') {
+        console.error('响应数据格式错误:', response);
+        throw new Error('响应数据格式错误');
+      }
+
+      const responseData = response.data;
+      
+      // 验证 token 和 user 数据
+      // 检查 token 和 user 是否在顶层或者在 data 字段中
+      const loginData = responseData.data || responseData;
+      
+      if (!loginData.token || !loginData.user) {
+        console.error('缺少token或user数据:', responseData);
+        throw new Error('认证响应缺少必要数据');
+      }
+      
+      const { token, user } = loginData;
+      
+      // 存储认证信息
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      
       return loginData;
-    } else {
-      console.error('认证成功但缺少必要数据', loginData);
-      throw new Error('认证响应缺少必要数据');
+    } catch (error: any) {
+      console.error('登录失败:', error);
+      
+      // 如果是我们自定义的错误，直接抛出
+      if (error.message) {
+        throw error;
+      }
+      
+      // 其他错误统一处理
+      throw new Error('登录失败，请检查用户名和密码');
     }
   },
 

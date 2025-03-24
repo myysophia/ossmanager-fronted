@@ -1,153 +1,147 @@
-// 存储配置和系统配置的数据访问层
-// 在实际应用中，这里应该是与数据库交互的代码
+import { StorageConfig, StorageConfigInput } from '../api/types';
+import apiClient from '../api/axios';
+import { ApiResponse, PageResponse } from '../api/types';
 
-import { v4 as uuidv4 } from 'uuid';
+/**
+ * 存储配置服务
+ */
+export class StorageConfigService {
+  /**
+   * 获取所有存储配置
+   */
+  static async getAllStorageConfigs(): Promise<StorageConfig[]> {
+    console.log('调用 getAllStorageConfigs');
+    try {
+      interface StorageConfigListResponse {
+        items: StorageConfig[];
+        total: number;
+      }
 
-// 存储配置模型
-export interface StorageConfig {
-  id: string;
-  name: string;
-  type: string;
-  endpoint: string;
-  accessKey: string;
-  secretKey: string;
-  bucket: string;
-  region: string;
-  isDefault: boolean;
-}
+      const response = await apiClient.get<StorageConfigListResponse>('/oss/configs');
+      
+      console.log('API响应数据:', response.data);
+      
+      const responseData = response.data;
+      if (!responseData || typeof responseData !== 'object') {
+        throw new Error('API响应格式错误');
+      }
 
-// 系统配置模型
-export interface SystemConfig {
-  maxFileSize: number;
-  allowedFileTypes: string[];
-  maxUploadConcurrency: number;
-  enablePublicAccess: boolean;
-  retentionDays: number;
-}
+      if (!responseData.items || !Array.isArray(responseData.items)) {
+        console.error('API响应结构:', {
+          hasResponseData: !!responseData,
+          responseData: responseData,
+          hasItems: !!responseData.items,
+          isArray: Array.isArray(responseData.items),
+          itemsContent: responseData.items
+        });
+        throw new Error('API响应items字段格式错误');
+      }
 
-// 存储配置数据
-// 在实际应用中，这应该存储在数据库中
-export let storageConfigs: StorageConfig[] = [
-  {
-    id: '1',
-    name: '本地存储',
-    type: 'local',
-    endpoint: 'http://localhost:3000/storage',
-    accessKey: 'localkey',
-    secretKey: 'localsecret',
-    bucket: 'local-bucket',
-    region: 'local',
-    isDefault: true,
-  },
-  {
-    id: '2',
-    name: '阿里云OSS',
-    type: 'oss',
-    endpoint: 'https://oss-cn-beijing.aliyuncs.com',
-    accessKey: 'alioss-key',
-    secretKey: 'alioss-secret',
-    bucket: 'alioss-bucket',
-    region: 'cn-beijing',
-    isDefault: false,
-  },
-];
-
-// 系统配置数据
-// 在实际应用中，这应该存储在数据库中
-export let systemConfig: SystemConfig = {
-  maxFileSize: 100, // MB
-  allowedFileTypes: ['jpg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt'],
-  maxUploadConcurrency: 5,
-  enablePublicAccess: true,
-  retentionDays: 30,
-};
-
-// 存储配置相关方法
-export const StorageConfigService = {
-  // 获取所有存储配置
-  getAllConfigs: () => {
-    return storageConfigs;
-  },
-  
-  // 获取单个存储配置
-  getConfigById: (id: string) => {
-    return storageConfigs.find(config => config.id === id);
-  },
-  
-  // 创建新的存储配置
-  createConfig: (config: Omit<StorageConfig, 'id'>) => {
-    const newConfig: StorageConfig = {
-      id: uuidv4(),
-      ...config,
-    };
-    
-    // 如果是默认配置，将其他配置设为非默认
-    if (newConfig.isDefault) {
-      storageConfigs = storageConfigs.map(config => ({
-        ...config,
-        isDefault: false,
-      }));
+      console.log('解析后的存储配置列表:', responseData.items);
+      return responseData.items;
+    } catch (error) {
+      console.error('获取存储配置失败:', error);
+      throw error;
     }
-    
-    storageConfigs.push(newConfig);
-    return newConfig;
-  },
-  
-  // 更新存储配置
-  updateConfig: (id: string, updates: Partial<Omit<StorageConfig, 'id'>>) => {
-    const configIndex = storageConfigs.findIndex(config => config.id === id);
-    if (configIndex === -1) return null;
-    
-    // 如果设置为默认，将其他配置设为非默认
-    if (updates.isDefault) {
-      storageConfigs = storageConfigs.map(config => ({
-        ...config,
-        isDefault: config.id === id,
-      }));
-    }
-    
-    const updatedConfig = {
-      ...storageConfigs[configIndex],
-      ...updates,
-    };
-    
-    storageConfigs[configIndex] = updatedConfig;
-    return updatedConfig;
-  },
-  
-  // 删除存储配置
-  deleteConfig: (id: string) => {
-    const configIndex = storageConfigs.findIndex(config => config.id === id);
-    if (configIndex === -1) return false;
-    
-    // 不允许删除默认配置
-    if (storageConfigs[configIndex].isDefault) {
-      return false;
-    }
-    
-    storageConfigs.splice(configIndex, 1);
-    return true;
-  },
-  
-  // 获取默认配置
-  getDefaultConfig: () => {
-    return storageConfigs.find(config => config.isDefault);
-  },
-};
+  }
 
-// 系统配置相关方法
-export const SystemConfigService = {
-  // 获取系统配置
-  getConfig: () => {
-    return systemConfig;
-  },
-  
-  // 更新系统配置
-  updateConfig: (updates: Partial<SystemConfig>) => {
-    systemConfig = {
-      ...systemConfig,
-      ...updates,
-    };
-    return systemConfig;
-  },
-}; 
+  /**
+   * 获取单个存储配置
+   */
+  static async getStorageConfig(id: number): Promise<StorageConfig> {
+    console.log('调用 getStorageConfig, id:', id);
+    try {
+      interface SingleConfigResponse {
+        code: number;
+        message: string;
+        data: StorageConfig;
+      }
+
+      const response = await apiClient.get<SingleConfigResponse>(`/oss/configs/${id}`);
+      
+      if (!response.data?.data) {
+        throw new Error('获取配置失败');
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      console.error('获取单个配置失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 创建存储配置
+   */
+  static async createStorageConfig(config: StorageConfigInput): Promise<StorageConfig> {
+    console.log('调用 createStorageConfig, config:', config);
+    try {
+      interface CreateConfigResponse {
+        code: number;
+        message: string;
+        data: StorageConfig;
+      }
+
+      const response = await apiClient.post<CreateConfigResponse>('/oss/configs', config);
+      
+      if (!response.data?.data) {
+        throw new Error('创建配置失败');
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      console.error('创建配置失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 更新存储配置
+   */
+  static async updateStorageConfig(id: number, config: Partial<StorageConfigInput>): Promise<StorageConfig> {
+    console.log('调用 updateStorageConfig, id:', id, 'config:', config);
+    try {
+      interface UpdateConfigResponse {
+        code: number;
+        message: string;
+        data: StorageConfig;
+      }
+
+      const response = await apiClient.put<UpdateConfigResponse>(`/oss/configs/${id}`, config);
+      
+      if (!response.data?.data) {
+        throw new Error('更新配置失败');
+      }
+      
+      return response.data.data;
+    } catch (error) {
+      console.error('更新配置失败:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 删除存储配置
+   */
+  static async deleteStorageConfig(id: number): Promise<void> {
+    console.log('调用 deleteStorageConfig, id:', id);
+    try {
+      interface DeleteConfigResponse {
+        code: number;
+        message: string;
+        data: null;
+      }
+
+      const response = await apiClient.delete<DeleteConfigResponse>(`/oss/configs/${id}`);
+      
+      if (!response.data) {
+        throw new Error('删除配置失败');
+      }
+      
+      console.log('删除配置成功');
+    } catch (error) {
+      console.error('删除配置失败:', error);
+      throw error;
+    }
+  }
+} 

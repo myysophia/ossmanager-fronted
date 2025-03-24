@@ -14,7 +14,7 @@ export const ConfigAPI = {
     const response = await apiClient.get<ApiResponse<PageResponse<StorageConfig>>>('/oss/configs', { 
       params,
     });
-    return response.data as unknown as PageResponse<StorageConfig>;
+    return response.data.data;
   },
 
   /**
@@ -24,7 +24,7 @@ export const ConfigAPI = {
    */
   getConfigById: async (id: number): Promise<StorageConfig> => {
     const response = await apiClient.get<ApiResponse<StorageConfig>>(`/oss/configs/${id}`);
-    return response.data as unknown as StorageConfig;
+    return response.data.data;
   },
 
   /**
@@ -34,7 +34,7 @@ export const ConfigAPI = {
    */
   createConfig: async (config: StorageConfigInput): Promise<StorageConfig> => {
     const response = await apiClient.post<ApiResponse<StorageConfig>>('/oss/configs', config);
-    return response.data as unknown as StorageConfig;
+    return response.data.data;
   },
 
   /**
@@ -45,7 +45,7 @@ export const ConfigAPI = {
    */
   updateConfig: async (id: number, config: StorageConfigInput): Promise<StorageConfig> => {
     const response = await apiClient.put<ApiResponse<StorageConfig>>(`/oss/configs/${id}`, config);
-    return response.data as unknown as StorageConfig;
+    return response.data.data;
   },
 
   /**
@@ -53,7 +53,8 @@ export const ConfigAPI = {
    * @param id 配置ID
    */
   deleteConfig: async (id: number): Promise<void> => {
-    await apiClient.delete<ApiResponse>(`/oss/configs/${id}`);
+    const response = await apiClient.delete<ApiResponse<void>>(`/oss/configs/${id}`);
+    return response.data.data;
   },
 
   /**
@@ -61,7 +62,8 @@ export const ConfigAPI = {
    * @param id 配置ID
    */
   setDefaultConfig: async (id: number): Promise<void> => {
-    await apiClient.put<ApiResponse>(`/oss/configs/${id}/default`);
+    const response = await apiClient.put<ApiResponse<void>>(`/oss/configs/${id}/default`);
+    return response.data.data;
   },
 
   /**
@@ -71,7 +73,7 @@ export const ConfigAPI = {
    */
   testConnection: async (id: number): Promise<boolean> => {
     try {
-      await apiClient.post<ApiResponse>(`/oss/configs/${id}/test`);
+      const response = await apiClient.post<ApiResponse<void>>(`/oss/configs/${id}/test`);
       return true;
     } catch (error) {
       return false;
