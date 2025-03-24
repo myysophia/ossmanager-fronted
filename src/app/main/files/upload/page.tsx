@@ -26,6 +26,8 @@ import {
   IconButton,
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
+import { FileAPI, ConfigAPI } from '@/lib/api';
+import { StorageConfig } from '@/lib/api/types';
 
 interface UploadFile {
   id: string;
@@ -33,12 +35,7 @@ interface UploadFile {
   progress: number;
   status: 'ready' | 'uploading' | 'error' | 'done';
   error?: string;
-}
-
-interface StorageConfig {
-  id: string;
-  name: string;
-  type: string;
+  result?: any;
 }
 
 export default function UploadPage() {
@@ -46,10 +43,29 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
+  const [selectedStorage, setSelectedStorage] = useState<number | null>(null);
   const toast = useToast();
 
   useEffect(() => {
-    // 可以在此处添加其他初始化逻辑
+    // 获取存储配置列表
+    const fetchStorageConfigs = async () => {
+      try {
+        const response = await ConfigAPI.getConfigs();
+        // 分页响应中包含items数组
+        setStorageConfigs(response.items || []);
+        
+        // 如果有默认配置，则选中它
+        const defaultConfig = response.items?.find(config => config.is_default);
+        if (defaultConfig) {
+          setSelectedStorage(defaultConfig.id);
+        }
+      } catch (error) {
+        console.error('获取存储配置失败:', error);
+      }
+    };
+
+    fetchStorageConfigs();
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -104,41 +120,59 @@ export default function UploadPage() {
     
     setUploading(true);
     
-    // 模拟文件上传进度
+    // 实际上传文件到后端
     const uploadPromises = files.map(async (file) => {
       // 只上传状态为ready的文件
       if (file.status !== 'ready') return;
       
-      const formData = new FormData();
-      formData.append('file', file.file);
-      formData.append('tags', JSON.stringify(tags));
-      
       try {
-        // 模拟上传进度
-        const totalSteps = 10;
-        
-        for (let i = 1; i <= totalSteps; i++) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-          const progress = Math.floor((i / totalSteps) * 100);
-          
-          setFiles(prev => 
-            prev.map(f => 
-              f.id === file.id 
-                ? { ...f, progress, status: 'uploading' } 
-                : f
-            )
-          );
-        }
-        
-        // 模拟上传完成
+        // 更新状态为正在上传
         setFiles(prev => 
           prev.map(f => 
             f.id === file.id 
-              ? { ...f, progress: 100, status: 'done' } 
+              ? { ...f, progress: 10, status: 'uploading' } 
+              : f
+          )
+        );
+        
+        // 创建包含文件和额外字段的表单数据
+        const formData = new FormData();
+        formData.append('file', file.file);
+        
+        // 添加标签到元数据
+        if (tags.length > 0) {
+          formData.append('tags', JSON.stringify(tags));
+        }
+        
+        // 如果选择了特定的存储配置，则使用该配置
+        if (selectedStorage) {
+          formData.append('config_id', selectedStorage.toString());
+        }
+        
+        // 更新进度为50%（开始上传）
+        setFiles(prev => 
+          prev.map(f => 
+            f.id === file.id 
+              ? { ...f, progress: 50, status: 'uploading' } 
+              : f
+          )
+        );
+        
+        // 调用后端API上传文件
+        console.log(`开始上传文件 ${file.file.name} 到后端...`);
+        const result = await FileAPI.uploadFile(file.file, selectedStorage ? String(selectedStorage) : undefined);
+        console.log(`文件 ${file.file.name} 上传成功:`, result);
+        
+        // 更新文件状态为上传完成
+        setFiles(prev => 
+          prev.map(f => 
+            f.id === file.id 
+              ? { ...f, progress: 100, status: 'done', result } 
               : f
           )
         );
       } catch (error) {
+        console.error(`文件 ${file.file.name} 上传失败:`, error);
         setFiles(prev => 
           prev.map(f => 
             f.id === file.id 
@@ -146,7 +180,7 @@ export default function UploadPage() {
                   ...f, 
                   progress: 0, 
                   status: 'error', 
-                  error: '上传失败' 
+                  error: error instanceof Error ? error.message : '上传失败' 
                 } 
               : f
           )
@@ -158,12 +192,35 @@ export default function UploadPage() {
     
     setUploading(false);
     
-    toast({
-      title: '上传完成',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
+    // 检查是否有上传失败的文件
+    const failedFiles = files.filter(f => f.status === 'error').length;
+    const successFiles = files.filter(f => f.status === 'done').length;
+    
+    if (failedFiles === 0 && successFiles > 0) {
+      toast({
+        title: '上传完成',
+        description: `成功上传 ${successFiles} 个文件`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } else if (failedFiles > 0 && successFiles > 0) {
+      toast({
+        title: '上传部分完成',
+        description: `成功上传 ${successFiles} 个文件，${failedFiles} 个文件失败`,
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+    } else if (failedFiles > 0 && successFiles === 0) {
+      toast({
+        title: '上传失败',
+        description: `所有 ${failedFiles} 个文件上传失败`,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   return (
@@ -197,6 +254,24 @@ export default function UploadPage() {
             </VStack>
           )}
         </Box>
+
+        {storageConfigs.length > 0 && (
+          <FormControl>
+            <FormLabel>存储位置</FormLabel>
+            <Select
+              value={selectedStorage || ''}
+              onChange={(e) => setSelectedStorage(e.target.value ? Number(e.target.value) : null)}
+              placeholder="选择存储位置"
+            >
+              {storageConfigs.map((config) => (
+                <option key={config.id} value={config.id}>
+                  {config.name} ({config.storage_type})
+                  {config.is_default ? ' (默认)' : ''}
+                </option>
+              ))}
+            </Select>
+          </FormControl>
+        )}
 
         <FormControl>
           <FormLabel>标签</FormLabel>
@@ -271,6 +346,11 @@ export default function UploadPage() {
                       {file.status === 'error' && (
                         <Text color="red.500" fontSize="sm">
                           {file.error || '上传失败'}
+                        </Text>
+                      )}
+                      {file.status === 'done' && file.result && (
+                        <Text color="green.500" fontSize="sm">
+                          文件ID: {file.result.id}
                         </Text>
                       )}
                     </VStack>

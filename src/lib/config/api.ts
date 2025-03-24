@@ -21,7 +21,8 @@ const getEnvValue = (key: string, defaultValue: string) => {
 // API基础地址配置
 const API_CONFIG = {
   development: {
-    baseURL: getEnvValue('NEXT_PUBLIC_API_URL', 'http://localhost:8080/api/v1'),
+    // 使用相对路径，让请求通过Next.js代理
+    baseURL: '/api/v1',
     timeout: parseInt(getEnvValue('NEXT_PUBLIC_API_TIMEOUT', '15000'), 10),
   },
   test: {
@@ -29,7 +30,7 @@ const API_CONFIG = {
     timeout: parseInt(getEnvValue('NEXT_PUBLIC_API_TIMEOUT', '15000'), 10),
   },
   production: {
-    baseURL: getEnvValue('NEXT_PUBLIC_API_URL', '/api/v1'),
+    baseURL: '/api/v1',
     timeout: parseInt(getEnvValue('NEXT_PUBLIC_API_TIMEOUT', '15000'), 10),
   },
 };

@@ -1,11 +1,13 @@
-'use client';
-
-import MainLayout from '@/components/layout/MainLayout';
+import MainLayoutClient from '@/components/layout/MainLayout';
 
 export default function MainAppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <MainLayout>{children}</MainLayout>;
+  return (
+    <MainLayoutClient>
+      {children}
+    </MainLayoutClient>
+  );
 } 
