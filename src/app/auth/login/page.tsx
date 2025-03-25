@@ -23,6 +23,7 @@ import { motion } from 'framer-motion';
 import { AuthAPI } from '@/lib/api/auth';
 
 const MotionBox = motion(Box);
+const IllustrationWrapper = motion(Box);
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -125,7 +126,7 @@ export default function LoginPage() {
               bgGradient="linear(to-r, white, blue.200)"
               bgClip="text"
             >
-              OSS 管理系统
+              OSS 文件管理系统
             </Heading>
             <Text
               fontSize="lg"
@@ -138,23 +139,115 @@ export default function LoginPage() {
           </Box>
 
           {/* 主要插图 */}
-          <Box
+          <IllustrationWrapper
             position="relative"
             w="full"
             maxW="600px"
-            sx={{
-              '@keyframes float': {
-                '0%, 100%': { transform: 'translateY(0px)' },
-                '50%': { transform: 'translateY(-20px)' }
-              },
-              animation: 'float 6s ease-in-out infinite'
+            initial={{ y: 0 }}
+            animate={{
+              y: [0, -10, 0],
+              transition: {
+                duration: 4,
+                repeat: Infinity,
+                repeatType: "reverse",
+                ease: "easeInOut"
+              }
+            }}
+            style={{
+              perspective: "1000px",
+              transformStyle: "preserve-3d"
             }}
           >
-            <Image
-              src="/login-illustration.svg"
-              alt="System Illustration"
-              w="full"
-              h="auto"
+            <Box
+              position="relative"
+              transform="translateZ(0)"
+              _before={{
+                content: '""',
+                position: "absolute",
+                bottom: "-20px",
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: "70%",
+                height: "20px",
+                background: "rgba(0, 0, 0, 0.1)",
+                filter: "blur(10px)",
+                borderRadius: "50%",
+                animation: "shadowPulse 4s ease-in-out infinite"
+              }}
+              sx={{
+                "@keyframes shadowPulse": {
+                  "0%, 100%": {
+                    transform: "translateX(-50%) scale(1)",
+                    opacity: 0.3
+                  },
+                  "50%": {
+                    transform: "translateX(-50%) scale(0.9)",
+                    opacity: 0.2
+                  }
+                }
+              }}
+            >
+              <Image
+                src="/login-illustration.svg"
+                alt="System Illustration"
+                w="full"
+                h="auto"
+                style={{
+                  transform: "translateZ(20px)",
+                  transformStyle: "preserve-3d"
+                }}
+              />
+            </Box>
+          </IllustrationWrapper>
+
+          {/* 装饰元素 */}
+          <Box
+            position="absolute"
+            top="20%"
+            left="15%"
+            as={motion.div}
+            animate={{
+              y: [0, -15, 0],
+              transition: {
+                duration: 3,
+                repeat: Infinity,
+                repeatType: "reverse",
+                ease: "easeInOut",
+                delay: 0.5
+              }
+            }}
+          >
+            <Box
+              w="10px"
+              h="10px"
+              bg="blue.200"
+              borderRadius="full"
+              opacity={0.6}
+            />
+          </Box>
+
+          <Box
+            position="absolute"
+            bottom="25%"
+            right="15%"
+            as={motion.div}
+            animate={{
+              y: [0, -20, 0],
+              transition: {
+                duration: 3.5,
+                repeat: Infinity,
+                repeatType: "reverse",
+                ease: "easeInOut",
+                delay: 1
+              }
+            }}
+          >
+            <Box
+              w="8px"
+              h="8px"
+              bg="green.300"
+              borderRadius="full"
+              opacity={0.6}
             />
           </Box>
         </Flex>
@@ -193,9 +286,6 @@ export default function LoginPage() {
           <Stack spacing={6}>
             <Stack spacing={2}>
               <Heading size="lg">欢迎回来 👋🏻</Heading>
-              <Text color="gray.600">
-                请登录您的账号以继续使用
-              </Text>
             </Stack>
 
             <form onSubmit={handleLogin}>
