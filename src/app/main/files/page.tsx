@@ -111,10 +111,10 @@ export default function FileListPage() {
   const [files, setFiles] = useState<OSSFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [queryParams, setQueryParams] = useState<FileQueryParams>({
     page: 1,
     page_size: 10,
-    keyword: '',
     storage_type: '',
   });
   // 前端排序状态
@@ -142,12 +142,20 @@ export default function FileListPage() {
     actions: 100,
   });
 
-  // 获取排序后的文件列表
-  const sortedFiles = useMemo(() => {
-    const filesArray = [...files];
-    if (sortConfig.key === '') return filesArray;
+  // 获取排序和搜索过滤后的文件列表
+  const filteredAndSortedFiles = useMemo(() => {
+    // 先进行搜索过滤
+    let filteredFiles = searchKeyword
+      ? files.filter(file => 
+          file.original_filename.toLowerCase().includes(searchKeyword.toLowerCase())
+        )
+      : files;
+
+    // 如果没有排序配置，直接返回过滤后的结果
+    if (sortConfig.key === '') return filteredFiles;
     
-    return filesArray.sort((a, b) => {
+    // 对过滤后的结果进行排序
+    return [...filteredFiles].sort((a, b) => {
       if (a[sortConfig.key as keyof OSSFile] === undefined || b[sortConfig.key as keyof OSSFile] === undefined) {
         return 0;
       }
@@ -168,11 +176,18 @@ export default function FileListPage() {
       
       return 0;
     });
-  }, [files, sortConfig]);
+  }, [files, searchKeyword, sortConfig]);
+
+  // 获取当前页的文件
+  const currentPageFiles = useMemo(() => {
+    const startIndex = (queryParams.page! - 1) * queryParams.page_size!;
+    const endIndex = startIndex + queryParams.page_size!;
+    return filteredAndSortedFiles.slice(startIndex, endIndex);
+  }, [filteredAndSortedFiles, queryParams.page, queryParams.page_size]);
 
   useEffect(() => {
     fetchFiles();
-  }, [queryParams]);
+  }, [queryParams.page_size]); // 只在页面大小改变时重新获取数据
 
   const fetchFiles = async () => {
     try {
@@ -272,18 +287,19 @@ export default function FileListPage() {
     });
   };
 
-  const handleSearch = () => {
-    // 重置页码并执行搜索
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchKeyword(e.target.value);
     setQueryParams(prev => ({
       ...prev,
-      page: 1
+      page: 1 // 重置到第一页
     }));
   };
 
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearch = () => {
+    // 搜索时重置页码
     setQueryParams(prev => ({
       ...prev,
-      keyword: e.target.value
+      page: 1
     }));
   };
 
@@ -374,7 +390,7 @@ export default function FileListPage() {
         <HStack spacing={4} mb={6}>
           <Input
             placeholder="搜索文件名"
-            value={queryParams.keyword}
+            value={searchKeyword}
             onChange={handleSearchInputChange}
             maxW="300px"
           />
@@ -535,7 +551,7 @@ export default function FileListPage() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {sortedFiles.map((file) => (
+                    {currentPageFiles.map((file) => (
                       <Tr key={file.id}>
                         <Td 
                           px={2} 
@@ -627,7 +643,7 @@ export default function FileListPage() {
                 
                 <Flex justify="space-between" mt={4}>
                   <HStack>
-                    <Text>共 {total} 条记录</Text>
+                    <Text>共 {filteredAndSortedFiles.length} 条记录</Text>
                     <Select 
                       value={queryParams.page_size} 
                       onChange={handlePageSizeChange}
@@ -651,7 +667,7 @@ export default function FileListPage() {
                     <Text>第 {queryParams.page} 页</Text>
                     <Button 
                       onClick={() => handlePageChange(queryParams.page! + 1)}
-                      isDisabled={queryParams.page! * queryParams.page_size! >= total || loading}
+                      isDisabled={queryParams.page! * queryParams.page_size! >= filteredAndSortedFiles.length || loading}
                     >
                       下一页
                     </Button>
