@@ -71,11 +71,6 @@ const MENU_ITEMS: MenuItemType[] = [
     icon: <FiSearch size={18} /> 
   },
   { 
-    label: 'API示例', 
-    path: '/api-example', 
-    icon: <FiDatabase size={18} /> 
-  },
-  { 
     label: '后台管理', 
     path: '/main/admin', 
     icon: <FiSettings size={18} />,
@@ -86,13 +81,7 @@ const MENU_ITEMS: MenuItemType[] = [
     path: '/main/admin/audit', 
     icon: <FiList size={18} />,
     permissions: ['admin']
-  },
-  { 
-    label: '系统设置', 
-    path: '/main/admin/settings', 
-    icon: <FiSettings size={18} />,
-    permissions: ['admin']
-  },
+  }
 ];
 
 // 拆分顶部导航为独立组件

@@ -15,7 +15,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
-import { FiSettings, FiList, FiUser, FiDatabase } from 'react-icons/fi';
+import { FiList, FiUser } from 'react-icons/fi';
 
 interface AdminCard {
   title: string;
@@ -31,39 +31,27 @@ export default function AdminPage() {
 
   const adminCards: AdminCard[] = [
     {
-      title: '系统设置',
-      description: '管理系统配置、存储设置和权限控制',
-      icon: <Icon as={FiSettings} boxSize={10} color="blue.500" />,
-      path: '/main/admin/settings',
-    },
-    {
-      title: '审计日志',
-      description: '查看系统操作记录和用户行为日志',
-      icon: <Icon as={FiList} boxSize={10} color="green.500" />,
-      path: '/main/admin/audit',
-    },
-    {
       title: '用户管理',
       description: '管理系统用户、角色和权限分配',
       icon: <Icon as={FiUser} boxSize={10} color="purple.500" />,
       path: '/main/admin/users',
     },
     {
-      title: '存储监控',
-      description: '监控存储使用情况和性能指标',
-      icon: <Icon as={FiDatabase} boxSize={10} color="orange.500" />,
-      path: '/main/admin/monitor',
-    },
+      title: '审计日志',
+      description: '查看系统操作记录和用户行为日志',
+      icon: <Icon as={FiList} boxSize={10} color="green.500" />,
+      path: '/main/admin/audit',
+    }
   ];
 
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={8}>
         <Heading size="lg" mb={2}>后台管理</Heading>
-        <Text color="gray.500">管理系统配置和监控系统运行状态</Text>
+        <Text color="gray.500">管理系统用户和查看操作日志</Text>
       </Box>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 2 }} spacing={6}>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
         {adminCards.map((card, index) => (
           <Card
             key={index}
