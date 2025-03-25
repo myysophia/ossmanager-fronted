@@ -24,137 +24,187 @@ import {
   Select,
   VStack,
   Text,
+  Spinner,
+  Badge,
+  Flex,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
 } from '@chakra-ui/react';
-import { FiDownload, FiTrash2, FiMoreVertical, FiSearch } from 'react-icons/fi';
+import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FileAPI } from '@/lib/api/files';
+import { OSSFile, FileQueryParams } from '@/lib/api/types';
 
-interface File {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-  uploadDate: string;
-  uploadBy: string;
-  md5: string;
-}
+// 格式化文件大小的函数
+const formatFileSize = (sizeInBytes: number): string => {
+  if (sizeInBytes < 1024) {
+    return `${sizeInBytes} B`;
+  } else if (sizeInBytes < 1024 * 1024) {
+    return `${(sizeInBytes / 1024).toFixed(2)} KB`;
+  } else if (sizeInBytes < 1024 * 1024 * 1024) {
+    return `${(sizeInBytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else {
+    return `${(sizeInBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  }
+};
+
+// 格式化日期的函数
+const formatDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 export default function FileListPage() {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<OSSFile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<number[]>([]);
+  const [queryParams, setQueryParams] = useState<FileQueryParams>({
+    page: 1,
+    page_size: 10,
+    keyword: '',
+    storage_type: '',
+  });
+  const [total, setTotal] = useState(0);
   const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [fileToDelete, setFileToDelete] = useState<number | null>(null);
 
   useEffect(() => {
-    // 模拟从API获取数据
-    setTimeout(() => {
-      const mockFiles: File[] = [
-        {
-          id: '1',
-          name: '项目计划.pdf',
-          size: '2.5 MB',
-          type: 'pdf',
-          uploadDate: '2023-06-15',
-          uploadBy: '张三',
-          md5: 'a1b2c3d4e5f67890',
-        },
-        {
-          id: '2',
-          name: '财务报表.xlsx',
-          size: '1.8 MB',
-          type: 'xlsx',
-          uploadDate: '2023-06-14',
-          uploadBy: '李四',
-          md5: 'b2c3d4e5f678901a',
-        },
-        {
-          id: '3',
-          name: '会议记录.docx',
-          size: '856 KB',
-          type: 'docx',
-          uploadDate: '2023-06-13',
-          uploadBy: '王五',
-          md5: 'c3d4e5f6789012ab',
-        },
-        {
-          id: '4',
-          name: '产品图片.jpg',
-          size: '3.2 MB',
-          type: 'jpg',
-          uploadDate: '2023-06-12',
-          uploadBy: '赵六',
-          md5: 'd4e5f67890123abc',
-        },
-      ];
-      setFiles(mockFiles);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    fetchFiles();
+  }, [queryParams]);
 
-  const handleDownload = (fileId: string) => {
+  const fetchFiles = async () => {
+    try {
+      setLoading(true);
+      const response = await FileAPI.getFiles(queryParams);
+      
+      if (response) {
+        setFiles(response.items || []);
+        setTotal(response.total || 0);
+      }
+    } catch (error) {
+      console.error('获取文件列表失败', error);
+      toast({
+        title: '获取文件列表失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (fileId: number) => {
+    try {
+      const response = await FileAPI.getFileDownloadURL(fileId);
+      if (response && response.download_url) {
+        // 删除download_url中的Expires=1742885917&
+        const downloadUrl = response.download_url.replace(/Expires=\d+&/, '');
+        console.log('downloadUrl',downloadUrl)
+        // 使用新窗口打开下载链接
+        window.open(downloadUrl, '_blank');
+        
+        toast({
+          title: '文件下载中',
+          status: 'info',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (error) {
+      console.error('获取下载链接失败', error);
+      toast({
+        title: '获取下载链接失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const confirmDelete = (fileId: number) => {
+    setFileToDelete(fileId);
+    onOpen();
+  };
+
+  const handleDelete = async () => {
+    if (fileToDelete === null) return;
+    
+    try {
+      await FileAPI.deleteFile(fileToDelete);
+      toast({
+        title: '文件已删除',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      // 重新获取文件列表
+      fetchFiles();
+    } catch (error) {
+      console.error('删除文件失败', error);
+      toast({
+        title: '删除文件失败',
+        description: error instanceof Error ? error.message : '未知错误',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setFileToDelete(null);
+      onClose();
+    }
+  };
+
+  const handleBatchDelete = () => {
+    if (selectedFiles.length === 0) return;
+    
     toast({
-      title: '文件下载中',
-      description: '开始下载文件',
+      title: '批量删除暂未实现',
+      description: '请使用单个删除功能',
       status: 'info',
       duration: 3000,
       isClosable: true,
     });
   };
 
-  const handleDelete = (fileId: string) => {
-    setFiles(files.filter(file => file.id !== fileId));
-    toast({
-      title: '文件已删除',
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  };
-
-  const handleBatchDelete = () => {
-    if (selectedFiles.length === 0) return;
-    
-    setFiles(files.filter(file => !selectedFiles.includes(file.id)));
-    setSelectedFiles([]);
-    toast({
-      title: '批量删除成功',
-      description: `已删除 ${selectedFiles.length} 个文件`,
-      status: 'success',
-      duration: 3000,
-      isClosable: true,
-    });
-  };
-
   const handleSearch = () => {
-    setLoading(true);
-    // 模拟搜索
-    setTimeout(() => {
-      if (searchTerm === '') {
-        // 如果搜索词为空，恢复所有文件
-        const mockFiles: File[] = [
-          {
-            id: '1',
-            name: '项目计划.pdf',
-            size: '2.5 MB',
-            type: 'pdf',
-            uploadDate: '2023-06-15',
-            uploadBy: '张三',
-            md5: 'a1b2c3d4e5f67890',
-          },
-          // ... (其他文件)
-        ];
-        setFiles(mockFiles);
-      } else {
-        // 模拟搜索结果
-        const filteredFiles = files.filter(file => 
-          file.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setFiles(filteredFiles);
-      }
-      setLoading(false);
-    }, 500);
+    // 重置页码并执行搜索
+    setQueryParams(prev => ({
+      ...prev,
+      page: 1
+    }));
   };
 
-  const toggleFileSelection = (fileId: string) => {
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setQueryParams(prev => ({
+      ...prev,
+      keyword: e.target.value
+    }));
+  };
+
+  const handleStorageTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setQueryParams(prev => ({
+      ...prev,
+      storage_type: e.target.value
+    }));
+  };
+
+  const toggleFileSelection = (fileId: number) => {
     if (selectedFiles.includes(fileId)) {
       setSelectedFiles(selectedFiles.filter(id => id !== fileId));
     } else {
@@ -170,18 +220,48 @@ export default function FileListPage() {
     }
   };
 
+  const handleRefresh = () => {
+    fetchFiles();
+  };
+
+  const handlePageChange = (page: number) => {
+    setQueryParams(prev => ({
+      ...prev,
+      page
+    }));
+  };
+
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={6}>
-        <Heading size="lg" mb={4}>文件列表</Heading>
+        <Flex justify="space-between" align="center" mb={4}>
+          <Heading size="lg">文件列表</Heading>
+          <Button 
+            leftIcon={<FiRefreshCw />} 
+            onClick={handleRefresh}
+            isLoading={loading}
+          >
+            刷新
+          </Button>
+        </Flex>
         
         <HStack spacing={4} mb={6}>
           <Input
             placeholder="搜索文件名"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={queryParams.keyword}
+            onChange={handleSearchInputChange}
             maxW="300px"
           />
+          {/* <Select
+            placeholder="存储类型"
+            value={queryParams.storage_type}
+            onChange={handleStorageTypeChange}
+            maxW="200px"
+          >
+            <option value="ALIYUN_OSS">阿里云OSS</option>
+            <option value="AWS_S3">AWS S3</option>
+            <option value="CLOUDFLARE_R2">Cloudflare R2</option>
+          </Select> */}
           <Button leftIcon={<FiSearch />} onClick={handleSearch}>
             搜索
           </Button>
@@ -198,7 +278,9 @@ export default function FileListPage() {
         </HStack>
         
         {loading ? (
-          <Text>加载中...</Text>
+          <Flex justify="center" align="center" minH="200px">
+            <Spinner size="xl" />
+          </Flex>
         ) : (
           <>
             {files.length === 0 ? (
@@ -218,10 +300,9 @@ export default function FileListPage() {
                       </Th>
                       <Th>文件名</Th>
                       <Th>大小</Th>
-                      <Th>类型</Th>
-                      <Th>MD5</Th>
-                      <Th>上传日期</Th>
-                      <Th>上传者</Th>
+                      <Th>MD5值</Th>
+                      <Th>存储类型</Th>
+                      <Th>上传时间</Th>
                       <Th>操作</Th>
                     </Tr>
                   </Thead>
@@ -234,12 +315,19 @@ export default function FileListPage() {
                             onChange={() => toggleFileSelection(file.id)}
                           />
                         </Td>
-                        <Td>{file.name}</Td>
-                        <Td>{file.size}</Td>
-                        <Td>{file.type}</Td>
+                        <Td>{file.original_filename}</Td>
+                        <Td>{formatFileSize(file.file_size)}</Td>
                         <Td>{file.md5}</Td>
-                        <Td>{file.uploadDate}</Td>
-                        <Td>{file.uploadBy}</Td>
+                        <Td>
+                          <Badge colorScheme={
+                            file.storage_type === 'ALIYUN_OSS' ? 'orange' :
+                            file.storage_type === 'AWS_S3' ? 'blue' :
+                            file.storage_type === 'CLOUDFLARE_R2' ? 'purple' : 'gray'
+                          }>
+                            {file.storage_type}
+                          </Badge>
+                        </Td>
+                        <Td>{formatDate(file.created_at)}</Td>
                         <Td>
                           <HStack spacing={2}>
                             <IconButton
@@ -248,35 +336,63 @@ export default function FileListPage() {
                               size="sm"
                               onClick={() => handleDownload(file.id)}
                             />
-                            <Menu>
-                              <MenuButton
-                                as={IconButton}
-                                aria-label="更多操作"
-                                icon={<FiMoreVertical />}
-                                variant="ghost"
-                                size="sm"
-                              />
-                              <MenuList>
-                                <MenuItem 
-                                  icon={<FiTrash2 />} 
-                                  onClick={() => handleDelete(file.id)}
-                                  color="red.500"
-                                >
-                                  删除
-                                </MenuItem>
-                              </MenuList>
-                            </Menu>
+                            <IconButton
+                              aria-label="删除文件"
+                              icon={<FiTrash2 />}
+                              size="sm"
+                              colorScheme="red"
+                              onClick={() => confirmDelete(file.id)}
+                            />
                           </HStack>
                         </Td>
                       </Tr>
                     ))}
                   </Tbody>
                 </Table>
+                
+                <Flex justify="space-between" mt={4}>
+                  <Text>共 {total} 条记录</Text>
+                  <HStack>
+                    <Button 
+                      onClick={() => handlePageChange(queryParams.page! - 1)}
+                      isDisabled={queryParams.page === 1 || loading}
+                    >
+                      上一页
+                    </Button>
+                    <Text>第 {queryParams.page} 页</Text>
+                    <Button 
+                      onClick={() => handlePageChange(queryParams.page! + 1)}
+                      isDisabled={queryParams.page! * queryParams.page_size! >= total || loading}
+                    >
+                      下一页
+                    </Button>
+                  </HStack>
+                </Flex>
               </Box>
             )}
           </>
         )}
       </Box>
+
+      {/* 删除确认对话框 */}
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>确认删除</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            您确定要删除选中的文件吗？此操作无法撤销。
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onClose}>
+              取消
+            </Button>
+            <Button colorScheme="red" onClick={handleDelete}>
+              确认删除
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Container>
   );
 } 

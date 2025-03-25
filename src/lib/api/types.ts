@@ -79,6 +79,7 @@ export interface OSSFile {
   download_url: string;
   created_at: string;
   updated_at: string;
+  original_filename: string;
 }
 
 // 文件查询参数
