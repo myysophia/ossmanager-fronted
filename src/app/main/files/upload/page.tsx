@@ -26,8 +26,9 @@ import {
   IconButton,
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
-import { FileAPI, ConfigAPI } from '@/lib/api';
+import { FileAPI } from '@/lib/api';
 import { StorageConfig } from '@/lib/api/types';
+import { StorageConfigService } from '@/lib/data/storage';
 
 interface UploadFile {
   id: string;
@@ -51,22 +52,36 @@ export default function UploadPage() {
     // 获取存储配置列表
     const fetchStorageConfigs = async () => {
       try {
-        const response = await ConfigAPI.getConfigs();
-        // 分页响应中包含items数组
-        setStorageConfigs(response.items || []);
+        console.log('开始获取存储配置列表...');
+        const configs = await StorageConfigService.getAllStorageConfigs();
+        console.log('获取到的存储配置列表:', configs);
+        
+        setStorageConfigs(configs);
         
         // 如果有默认配置，则选中它
-        const defaultConfig = response.items?.find(config => config.is_default);
+        const defaultConfig = configs.find(config => config.is_default);
         if (defaultConfig) {
+          console.log('选择默认存储配置:', defaultConfig);
           setSelectedStorage(defaultConfig.id);
+        } else if (configs.length > 0) {
+          // 如果没有默认配置但有配置项，选择第一个
+          console.log('没有默认配置，选择第一个配置:', configs[0]);
+          setSelectedStorage(configs[0].id);
         }
       } catch (error) {
         console.error('获取存储配置失败:', error);
+        toast({
+          title: '获取存储配置失败',
+          description: error instanceof Error ? error.message : '未知错误',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
       }
     };
 
     fetchStorageConfigs();
-  }, []);
+  }, [toast]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map(file => ({
@@ -117,6 +132,16 @@ export default function UploadPage() {
       });
       return;
     }
+
+    if (!selectedStorage) {
+      toast({
+        title: '请选择存储位置',
+        status: 'warning',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
     
     setUploading(true);
     
@@ -137,30 +162,18 @@ export default function UploadPage() {
         
         // 创建包含文件和额外字段的表单数据
         const formData = new FormData();
+        // 按照后端 API 格式设置文件
         formData.append('file', file.file);
         
-        // 添加标签到元数据
-        if (tags.length > 0) {
-          formData.append('tags', JSON.stringify(tags));
-        }
-        
-        // 如果选择了特定的存储配置，则使用该配置
-        if (selectedStorage) {
-          formData.append('config_id', selectedStorage.toString());
-        }
-        
-        // 更新进度为50%（开始上传）
-        setFiles(prev => 
-          prev.map(f => 
-            f.id === file.id 
-              ? { ...f, progress: 50, status: 'uploading' } 
-              : f
-          )
-        );
+        // 打印上传信息
+        console.log('准备上传文件:', {
+          fileName: file.file.name,
+          fileSize: file.file.size,
+          fileType: file.file.type
+        });
         
         // 调用后端API上传文件
-        console.log(`开始上传文件 ${file.file.name} 到后端...`);
-        const result = await FileAPI.uploadFile(file.file, selectedStorage ? String(selectedStorage) : undefined);
+        const result = await FileAPI.uploadFile(file.file);
         console.log(`文件 ${file.file.name} 上传成功:`, result);
         
         // 更新文件状态为上传完成
@@ -256,7 +269,7 @@ export default function UploadPage() {
         </Box>
 
         {storageConfigs.length > 0 && (
-          <FormControl>
+          <FormControl isRequired>
             <FormLabel>存储位置</FormLabel>
             <Select
               value={selectedStorage || ''}

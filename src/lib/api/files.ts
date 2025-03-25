@@ -19,23 +19,33 @@ export const FileAPI = {
    * 上传文件
    * @param file 文件对象
    * @param storageType 存储类型
-   * @returns 上传后的文件信息
+   * @returns 上传成功的文件信息
    */
   uploadFile: async (file: File, storageType?: string): Promise<OSSFile> => {
+    // 创建 FormData 对象
     const formData = new FormData();
+    
+    // 按照 curl 命令格式设置文件
     formData.append('file', file);
     
-    if (storageType) {
-      formData.append('storage_type', storageType);
-    }
+    // 打印 FormData 内容进行调试
+    console.log('准备上传的文件信息:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
 
     const response = await apiClient.post<ApiResponse<OSSFile>>('/oss/files', formData, {
       headers: {
+        'Accept': '*/*',
         'Content-Type': 'multipart/form-data',
       },
     });
-    
-    return response.data as unknown as OSSFile;
+    // if (response.data.code !== 200) {
+    //   throw new Error('上传响应为空');
+    // }
+
+    return response.data.data;
   },
 
   /**

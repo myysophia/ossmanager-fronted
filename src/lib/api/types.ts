@@ -190,4 +190,19 @@ export interface MultipartCompleteParams {
 export interface FileDownloadResponse {
   download_url: string;
   expires_in: number;
+}
+
+export interface FileUploadResponse {
+  id: string;
+  name: string;
+  size: number;
+  mime_type: string;
+  url: string;
+  created_at: string;
+}
+
+export interface FileUploadRequest {
+  file: File | FormData;
+  storage_type?: string;
+  tags?: string[];
 } 
