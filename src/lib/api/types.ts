@@ -76,7 +76,8 @@ export interface OSSFile {
   config_id: number;
   config_name: string;
   md5: string;
-  download_url: string;
+  md5_status?: 'pending' | 'processing' | 'completed' | 'failed' | string;
+  download_url?: string;
   created_at: string;
   updated_at: string;
   original_filename: string;

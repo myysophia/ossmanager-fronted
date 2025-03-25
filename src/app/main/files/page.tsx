@@ -379,6 +379,16 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
+                      <Th cursor="pointer" onClick={() => handleSort('md5_status')}>
+                        <Flex align="center">
+                          MD5 状态
+                          {sortConfig.key === 'md5_status' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
                       <Th cursor="pointer" onClick={() => handleSort('storage_type')}>
                         <Flex align="center">
                           存储类型
@@ -414,6 +424,20 @@ export default function FileListPage() {
                         <Td>{file.original_filename}</Td>
                         <Td>{formatFileSize(file.file_size)}</Td>
                         <Td>{file.md5}</Td>
+                        <Td>
+                          <Badge colorScheme={
+                            file.md5_status === 'pending' ? 'gray' :
+                            file.md5_status === 'processing' ? 'yellow' :
+                            file.md5_status === 'completed' ? 'green' :
+                            file.md5_status === 'failed' ? 'red' : 'gray'
+                          }>
+                            {file.md5_status === 'pending' ? '等待中' :
+                             file.md5_status === 'processing' ? '处理中' :
+                             file.md5_status === 'completed' ? '已完成' :
+                             file.md5_status === 'failed' ? '失败' : 
+                             file.md5_status || '未知'}
+                          </Badge>
+                        </Td>
                         <Td>
                           <Badge colorScheme={
                             file.storage_type === 'ALIYUN_OSS' ? 'orange' :
