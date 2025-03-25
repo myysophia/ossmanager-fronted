@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- 底座平台 -->
+  <path d="M200 400 L400 300 L600 400 L400 500 Z" fill="#2B6CB0" />
+  <path d="M200 400 L400 300 L400 320 L200 420 Z" fill="#1A4E82" />
+  <path d="M600 400 L400 300 L400 320 L600 420 Z" fill="#1A4E82" />
+  
+  <!-- 中心圆盘 -->
+  <ellipse cx="400" cy="320" rx="80" ry="40" fill="#3182CE" />
+  <ellipse cx="400" cy="310" rx="80" ry="40" fill="#4299E1" />
+  
+  <!-- 人物 -->
+  <g transform="translate(380, 260)">
+    <!-- 身体 -->
+    <path d="M0 0 L20 40 L-20 40 Z" fill="#4A5568" />
+    <!-- 头部 -->
+    <circle cx="0" cy="-5" r="12" fill="#4A5568" />
+    <!-- 手臂 -->
+    <path d="M-5 15 L-25 25 M25 25 L5 15" stroke="#4A5568" stroke-width="4" stroke-linecap="round" />
+  </g>
+  
+  <!-- 悬浮的图表和数据面板 -->
+  <!-- 左侧柱状图 -->
+  <g transform="translate(300, 280)">
+    <rect x="0" y="0" width="10" height="30" fill="#48BB78" />
+    <rect x="15" y="10" width="10" height="20" fill="#48BB78" opacity="0.8" />
+    <rect x="30" y="15" width="10" height="15" fill="#48BB78" opacity="0.6" />
+  </g>
+  
+  <!-- 右侧数据面板 -->
+  <g transform="translate(450, 250)">
+    <rect x="0" y="0" width="60" height="40" rx="5" fill="#4299E1" />
+    <line x1="10" y1="10" x2="50" y2="10" stroke="white" stroke-width="2" />
+    <line x1="10" y1="20" x2="40" y2="20" stroke="white" stroke-width="2" />
+    <line x1="10" y1="30" x2="45" y2="30" stroke="white" stroke-width="2" />
+  </g>
+  
+  <!-- 顶部浮动图表 -->
+  <g transform="translate(400, 200)">
+    <path d="M-30 0 Q0 -30 30 0" stroke="#48BB78" stroke-width="3" fill="none" />
+    <circle cx="-30" cy="0" r="3" fill="#48BB78" />
+    <circle cx="0" cy="-30" r="3" fill="#48BB78" />
+    <circle cx="30" cy="0" r="3" fill="#48BB78" />
+  </g>
+  
+  <!-- 装饰性元素 -->
+  <!-- 左侧云朵 -->
+  <g transform="translate(250, 200)">
+    <path d="M0 0 Q10 -10 20 0 Q30 -10 40 0" fill="none" stroke="#63B3ED" stroke-width="2" />
+  </g>
+  
+  <!-- 右侧数据方块 -->
+  <g transform="translate(550, 220)">
+    <rect x="0" y="0" width="20" height="20" fill="#4299E1" opacity="0.5" />
+    <rect x="25" y="10" width="20" height="20" fill="#4299E1" opacity="0.3" />
+  </g>
+  
+  <!-- 悬浮小球 -->
+  <circle cx="300" cy="180" r="6" fill="#48BB78" opacity="0.6">
+    <animate attributeName="cy" values="180;170;180" dur="2s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="500" cy="200" r="4" fill="#4299E1" opacity="0.6">
+    <animate attributeName="cy" values="200;190;200" dur="1.5s" repeatCount="indefinite" />
+  </circle>
+  
+  <!-- 底部装饰线条 -->
+  <g stroke="#63B3ED" stroke-width="1" opacity="0.3">
+    <line x1="250" y1="450" x2="550" y2="450" />
+    <line x1="270" y1="470" x2="530" y2="470" />
+    <line x1="290" y1="490" x2="510" y2="490" />
+  </g>
+</svg> 
