@@ -39,6 +39,48 @@ import {
 import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api/files';
 import { OSSFile, FileQueryParams } from '@/lib/api/types';
+import { css } from '@emotion/react';
+
+// 添加可调整列宽的样式
+const resizableTableStyles = css`
+  .resizable-table {
+    table-layout: fixed;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .resizable-column {
+    position: relative;
+    background-clip: padding-box;
+  }
+
+  .resizable-column:after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background-color: transparent;
+  }
+
+  .resizable-column:hover:after {
+    background-color: #ddd;
+  }
+
+  th.resizable-column {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  td {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+`;
 
 // 格式化文件大小的函数
 const formatFileSize = (sizeInBytes: number): string => {
@@ -88,6 +130,18 @@ export default function FileListPage() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [fileToDelete, setFileToDelete] = useState<number | null>(null);
   
+  // 在 FileListPage 组件内添加
+  const [columnWidths, setColumnWidths] = useState({
+    checkbox: 50,
+    filename: 200,
+    size: 100,
+    md5: 200,
+    md5Status: 120,
+    storageType: 120,
+    createdAt: 160,
+    actions: 100,
+  });
+
   // 获取排序后的文件列表
   const sortedFiles = useMemo(() => {
     const filesArray = [...files];
@@ -282,6 +336,27 @@ export default function FileListPage() {
     }));
   };
 
+  const handleColumnResize = (column: string, event: MouseEvent) => {
+    const startX = event.pageX;
+    const startWidth = columnWidths[column as keyof typeof columnWidths];
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(50, startWidth + (e.pageX - startX));
+      setColumnWidths(prev => ({
+        ...prev,
+        [column]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={6}>
@@ -339,17 +414,28 @@ export default function FileListPage() {
                 <Text color="gray.500">暂无文件</Text>
               </VStack>
             ) : (
-              <Box overflowX="auto">
-                <Table variant="simple">
+              <Box overflowX="auto" css={resizableTableStyles}>
+                <Table variant="simple" className="resizable-table">
                   <Thead>
                     <Tr>
-                      <Th px={2}>
+                      <Th 
+                        px={2} 
+                        className="resizable-column"
+                        width={`${columnWidths.checkbox}px`}
+                        onMouseDown={(e) => handleColumnResize('checkbox', e.nativeEvent)}
+                      >
                         <Checkbox
                           isChecked={selectedFiles.length === files.length && files.length > 0}
                           onChange={toggleSelectAll}
                         />
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('original_filename')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.filename}px`}
+                        onMouseDown={(e) => handleColumnResize('filename', e.nativeEvent)}
+                        onClick={() => handleSort('original_filename')}
+                      >
                         <Flex align="center">
                           文件名
                           {sortConfig.key === 'original_filename' && (
@@ -359,7 +445,13 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('file_size')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.size}px`}
+                        onMouseDown={(e) => handleColumnResize('size', e.nativeEvent)}
+                        onClick={() => handleSort('file_size')}
+                      >
                         <Flex align="center">
                           大小
                           {sortConfig.key === 'file_size' && (
@@ -369,7 +461,13 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('md5')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.md5}px`}
+                        onMouseDown={(e) => handleColumnResize('md5', e.nativeEvent)}
+                        onClick={() => handleSort('md5')}
+                      >
                         <Flex align="center">
                           MD5值
                           {sortConfig.key === 'md5' && (
@@ -379,7 +477,13 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('md5_status')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.md5Status}px`}
+                        onMouseDown={(e) => handleColumnResize('md5Status', e.nativeEvent)}
+                        onClick={() => handleSort('md5_status')}
+                      >
                         <Flex align="center">
                           MD5 状态
                           {sortConfig.key === 'md5_status' && (
@@ -389,7 +493,13 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('storage_type')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.storageType}px`}
+                        onMouseDown={(e) => handleColumnResize('storageType', e.nativeEvent)}
+                        onClick={() => handleSort('storage_type')}
+                      >
                         <Flex align="center">
                           存储类型
                           {sortConfig.key === 'storage_type' && (
@@ -399,7 +509,13 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" onClick={() => handleSort('created_at')}>
+                      <Th 
+                        cursor="pointer" 
+                        className="resizable-column"
+                        width={`${columnWidths.createdAt}px`}
+                        onMouseDown={(e) => handleColumnResize('createdAt', e.nativeEvent)}
+                        onClick={() => handleSort('created_at')}
+                      >
                         <Flex align="center">
                           上传时间
                           {sortConfig.key === 'created_at' && (
@@ -409,22 +525,50 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th>操作</Th>
+                      <Th 
+                        className="resizable-column"
+                        width={`${columnWidths.actions}px`}
+                        onMouseDown={(e) => handleColumnResize('actions', e.nativeEvent)}
+                      >
+                        操作
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {sortedFiles.map((file) => (
                       <Tr key={file.id}>
-                        <Td px={2}>
+                        <Td 
+                          px={2} 
+                          className="resizable-column"
+                          width={`${columnWidths.checkbox}px`}
+                        >
                           <Checkbox
                             isChecked={selectedFiles.includes(file.id)}
                             onChange={() => toggleFileSelection(file.id)}
                           />
                         </Td>
-                        <Td>{file.original_filename}</Td>
-                        <Td>{formatFileSize(file.file_size)}</Td>
-                        <Td>{file.md5}</Td>
-                        <Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.filename}px`}
+                        >
+                          {file.original_filename}
+                        </Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.size}px`}
+                        >
+                          {formatFileSize(file.file_size)}
+                        </Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.md5}px`}
+                        >
+                          {file.md5}
+                        </Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.md5Status}px`}
+                        >
                           <Badge colorScheme={
                             file.md5_status === 'pending' ? 'gray' :
                             file.md5_status === 'processing' ? 'yellow' :
@@ -438,7 +582,10 @@ export default function FileListPage() {
                              file.md5_status || '未知'}
                           </Badge>
                         </Td>
-                        <Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.storageType}px`}
+                        >
                           <Badge colorScheme={
                             file.storage_type === 'ALIYUN_OSS' ? 'orange' :
                             file.storage_type === 'AWS_S3' ? 'blue' :
@@ -447,8 +594,16 @@ export default function FileListPage() {
                             {file.storage_type}
                           </Badge>
                         </Td>
-                        <Td>{formatDate(file.created_at)}</Td>
-                        <Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.createdAt}px`}
+                        >
+                          {formatDate(file.created_at)}
+                        </Td>
+                        <Td 
+                          className="resizable-column"
+                          width={`${columnWidths.actions}px`}
+                        >
                           <HStack spacing={2}>
                             <IconButton
                               aria-label="下载文件"

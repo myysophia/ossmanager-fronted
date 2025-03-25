@@ -106,7 +106,7 @@ export default function UploadPage() {
       'text/plain': ['.txt'],
       'application/zip': ['.zip'],
       'application/x-rar-compressed': ['.rar'],
-      'application/gzip': ['.gz', '.tar.gz'],
+      'application/gzip': ['.gz', '.tar.gz','.tar'],
     },
   });
 
