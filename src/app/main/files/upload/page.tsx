@@ -104,6 +104,9 @@ export default function UploadPage() {
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'text/plain': ['.txt'],
+      'application/zip': ['.zip'],
+      'application/x-rar-compressed': ['.rar'],
+      'application/gzip': ['.gz', '.tar.gz'],
     },
   });
 
@@ -262,7 +265,7 @@ export default function UploadPage() {
               <FiUpload size={40} color="gray" />
               <Text fontSize="lg">拖放文件到此处，或点击选择文件</Text>
               <Text color="gray.500" fontSize="sm">
-                支持的文件类型: 图片, PDF, Word, Excel, 文本文件
+                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ
               </Text>
             </VStack>
           )}
