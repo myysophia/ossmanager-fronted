@@ -88,6 +88,8 @@ export interface FileQueryParams {
   page_size?: number;
   keyword?: string;
   storage_type?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
 }
 
 // 存储配置相关类型

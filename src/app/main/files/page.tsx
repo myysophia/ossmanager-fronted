@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -75,10 +75,46 @@ export default function FileListPage() {
     keyword: '',
     storage_type: '',
   });
+  // 前端排序状态
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof OSSFile | '',
+    direction: 'asc' | 'desc'
+  }>({
+    key: 'created_at',
+    direction: 'desc'
+  });
   const [total, setTotal] = useState(0);
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [fileToDelete, setFileToDelete] = useState<number | null>(null);
+  
+  // 获取排序后的文件列表
+  const sortedFiles = useMemo(() => {
+    const filesArray = [...files];
+    if (sortConfig.key === '') return filesArray;
+    
+    return filesArray.sort((a, b) => {
+      if (a[sortConfig.key as keyof OSSFile] === undefined || b[sortConfig.key as keyof OSSFile] === undefined) {
+        return 0;
+      }
+      
+      const aValue = a[sortConfig.key as keyof OSSFile];
+      const bValue = b[sortConfig.key as keyof OSSFile];
+      
+      // 处理不同类型的排序
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.direction === 'asc' 
+          ? aValue.localeCompare(bValue) 
+          : bValue.localeCompare(aValue);
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'asc' 
+          ? aValue - bValue 
+          : bValue - aValue;
+      }
+      
+      return 0;
+    });
+  }, [files, sortConfig]);
 
   useEffect(() => {
     fetchFiles();
@@ -204,6 +240,21 @@ export default function FileListPage() {
     }));
   };
 
+  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setQueryParams(prev => ({
+      ...prev,
+      page: 1, // 重置页码
+      page_size: Number(e.target.value)
+    }));
+  };
+
+  const handleSort = (field: keyof OSSFile) => {
+    setSortConfig(prev => ({
+      key: field,
+      direction: prev.key === field && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
   const toggleFileSelection = (fileId: number) => {
     if (selectedFiles.includes(fileId)) {
       setSelectedFiles(selectedFiles.filter(id => id !== fileId));
@@ -298,16 +349,61 @@ export default function FileListPage() {
                           onChange={toggleSelectAll}
                         />
                       </Th>
-                      <Th>文件名</Th>
-                      <Th>大小</Th>
-                      <Th>MD5值</Th>
-                      <Th>存储类型</Th>
-                      <Th>上传时间</Th>
+                      <Th cursor="pointer" onClick={() => handleSort('original_filename')}>
+                        <Flex align="center">
+                          文件名
+                          {sortConfig.key === 'original_filename' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
+                      <Th cursor="pointer" onClick={() => handleSort('file_size')}>
+                        <Flex align="center">
+                          大小
+                          {sortConfig.key === 'file_size' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
+                      <Th cursor="pointer" onClick={() => handleSort('md5')}>
+                        <Flex align="center">
+                          MD5值
+                          {sortConfig.key === 'md5' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
+                      <Th cursor="pointer" onClick={() => handleSort('storage_type')}>
+                        <Flex align="center">
+                          存储类型
+                          {sortConfig.key === 'storage_type' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
+                      <Th cursor="pointer" onClick={() => handleSort('created_at')}>
+                        <Flex align="center">
+                          上传时间
+                          {sortConfig.key === 'created_at' && (
+                            <Text ml={1} fontSize="xs">
+                              {sortConfig.direction === 'asc' ? '↑' : '↓'}
+                            </Text>
+                          )}
+                        </Flex>
+                      </Th>
                       <Th>操作</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {files.map((file) => (
+                    {sortedFiles.map((file) => (
                       <Tr key={file.id}>
                         <Td px={2}>
                           <Checkbox
@@ -351,7 +447,21 @@ export default function FileListPage() {
                 </Table>
                 
                 <Flex justify="space-between" mt={4}>
-                  <Text>共 {total} 条记录</Text>
+                  <HStack>
+                    <Text>共 {total} 条记录</Text>
+                    <Select 
+                      value={queryParams.page_size} 
+                      onChange={handlePageSizeChange}
+                      size="sm"
+                      width="100px"
+                      ml={4}
+                    >
+                      <option value={10}>10条/页</option>
+                      <option value={20}>20条/页</option>
+                      <option value={50}>50条/页</option>
+                      <option value={100}>100条/页</option>
+                    </Select>
+                  </HStack>
                   <HStack>
                     <Button 
                       onClick={() => handlePageChange(queryParams.page! - 1)}
