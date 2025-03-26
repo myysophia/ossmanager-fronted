@@ -1,5 +1,6 @@
 import apiClient from './axios';
 import { ApiResponse, User, Role, Permission, StorageConfig, SystemConfig } from './types';
+import { request } from './request';
 
 /**
  * 管理员相关API服务
@@ -156,5 +157,27 @@ export const AdminAPI = {
     const queryParams = new URLSearchParams(params);
     const response = await apiClient.get<ApiResponse<any>>(`/admin/audit-logs?${queryParams}`);
     return response.data as unknown as any;
+  },
+};
+
+export const StorageConfigAPI = {
+  getConfig: async (id: string) => {
+    return request.get(`/api/admin/storage-configs/${id}`);
+  },
+  
+  updateConfig: async (id: string, data: any) => {
+    return request.put(`/api/admin/storage-configs/${id}`, data);
+  },
+  
+  deleteConfig: async (id: string) => {
+    return request.delete(`/api/admin/storage-configs/${id}`);
+  },
+  
+  listConfigs: async () => {
+    return request.get('/api/admin/storage-configs');
+  },
+  
+  createConfig: async (data: any) => {
+    return request.post('/api/admin/storage-configs', data);
   },
 }; 

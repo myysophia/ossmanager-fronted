@@ -1,7 +1,4 @@
 import axios from 'axios';
-import { createStandaloneToast } from '@chakra-ui/react';
-
-const { toast } = createStandaloneToast();
 
 // 创建axios实例
 const apiClient = axios.create({
@@ -90,34 +87,16 @@ apiClient.interceptors.response.use(
           window.location.href = '/login';
         }
       } else {
-        // 显示错误信息
+        // 记录错误信息
         const errorMessage = error.response.data?.message || '请求失败';
-        toast({
-          title: '请求失败',
-          description: errorMessage,
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
+        console.error('API错误:', errorMessage);
       }
     } else if (error.request) {
       // 请求已发出但没有收到响应
-      toast({
-        title: '网络错误',
-        description: '请检查网络连接',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      console.error('网络错误: 请检查网络连接');
     } else {
       // 请求设置时发生错误
-      toast({
-        title: '请求错误',
-        description: error.message || '发生未知错误',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      console.error('请求错误:', error.message || '发生未知错误');
     }
     
     return Promise.reject(error);

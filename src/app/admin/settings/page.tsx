@@ -48,6 +48,14 @@ import {
   TagCloseButton,
   Flex,
   Spacer,
+  useColorModeValue,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
+  Badge,
 } from '@chakra-ui/react';
 import { FiMoreVertical, FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
 import { AdminAPI } from '@/lib/api';
@@ -74,6 +82,8 @@ interface LocalSystemConfig {
   maxUploadConcurrency: number;
   enableRegistration: boolean;
   enableCaptcha: boolean;
+  enablePublicAccess: boolean;
+  retentionDays: number;
 }
 
 export default function SettingsPage() {
@@ -86,6 +96,8 @@ export default function SettingsPage() {
     maxUploadConcurrency: 5,
     enableRegistration: false,
     enableCaptcha: false,
+    enablePublicAccess: false,
+    retentionDays: 30,
   });
   const [loading, setLoading] = useState(false);
   const [selectedConfig, setSelectedConfig] = useState<LocalStorageConfig | null>(null);
@@ -114,7 +126,18 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       const data = await AdminAPI.getStorageConfigs();
-      setStorageConfigs(data);
+      const localConfigs: LocalStorageConfig[] = data.map(config => ({
+        id: config.id,
+        name: config.name,
+        type: config.storage_type,
+        endpoint: config.endpoint,
+        accessKey: config.access_key,
+        secretKey: config.secret_key,
+        bucket: config.bucket,
+        region: config.region,
+        isDefault: config.is_default,
+      }));
+      setStorageConfigs(localConfigs);
     } catch (error) {
       toast({
         title: '获取存储配置失败',
@@ -131,7 +154,18 @@ export default function SettingsPage() {
   const fetchSystemConfig = async () => {
     try {
       const data = await AdminAPI.getSystemConfig();
-      setSystemConfig(data);
+      const localConfig: LocalSystemConfig = {
+        siteName: data.site_name,
+        description: data.description,
+        maxFileSize: data.max_file_size,
+        allowedFileTypes: data.allowed_file_types,
+        maxUploadConcurrency: data.max_upload_concurrency,
+        enableRegistration: data.enable_registration,
+        enableCaptcha: data.enable_captcha,
+        enablePublicAccess: data.enable_public_access,
+        retentionDays: data.retention_days,
+      };
+      setSystemConfig(localConfig);
     } catch (error) {
       toast({
         title: '获取系统配置失败',

@@ -21,6 +21,7 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { FiSearch } from 'react-icons/fi';
+import { Pagination as CustomPagination } from '@/components/common/Pagination';
 
 interface AuditLog {
   id: string;
@@ -235,7 +236,7 @@ export default function AuditLogPage() {
         </Box>
 
         <HStack justify="center">
-          <Pagination
+          <CustomPagination
             currentPage={queryParams.page}
             totalPages={Math.ceil(total / queryParams.pageSize)}
             onPageChange={handlePageChange}

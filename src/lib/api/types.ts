@@ -15,11 +15,10 @@ export interface PageResponse<T> {
 
 // 用户相关类型
 export interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
-  real_name: string;
-  role: 'admin' | 'user';
+  role: string;
   created_at: string;
   updated_at: string;
 }
@@ -46,20 +45,18 @@ export interface RegisterParams {
 
 // 角色相关类型
 export interface Role {
-  id: number;
+  id: string;
   name: string;
-  code: string;
   description: string;
-  permissions: Permission[];
+  permissions: string[];
   created_at: string;
   updated_at: string;
 }
 
 // 权限相关类型
 export interface Permission {
-  id: number;
+  id: string;
   name: string;
-  code: string;
   description: string;
   created_at: string;
   updated_at: string;
@@ -95,17 +92,15 @@ export interface FileQueryParams {
 
 // 存储配置相关类型
 export interface StorageConfig {
-  id: number;
+  id: string;
   name: string;
   storage_type: 'ALIYUN_OSS' | 'AWS_S3' | 'CLOUDFLARE_R2';
+  endpoint: string;
   access_key: string;
   secret_key: string;
-  region: string;
   bucket: string;
-  endpoint: string;
-  root_path: string;
+  region: string;
   is_default: boolean;
-  description: string;
   created_at: string;
   updated_at: string;
 }
@@ -134,13 +129,14 @@ export interface ConfigQueryParams {
 // 系统配置相关类型
 export interface SystemConfig {
   site_name: string;
-  site_description: string;
-  logo_url: string;
+  description: string;
   max_file_size: number;
   allowed_file_types: string[];
-  default_storage_config_id: number;
+  max_upload_concurrency: number;
   enable_registration: boolean;
   enable_captcha: boolean;
+  enable_public_access: boolean;
+  retention_days: number;
   created_at: string;
   updated_at: string;
 }
