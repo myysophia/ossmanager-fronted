@@ -41,6 +41,9 @@ const nextConfig = {
     // 在生产构建时忽略类型检查错误
     ignoreBuildErrors: true,
   },
+  // 添加主机名配置
+  hostname: '0.0.0.0',
+  port: 3000,
 };
 
 module.exports = nextConfig; 

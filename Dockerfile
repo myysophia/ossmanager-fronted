@@ -33,6 +33,8 @@ RUN npm ci --only=production --legacy-peer-deps
 # 设置环境变量
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 # 复制必要文件
 COPY --from=builder /app/next.config.js ./
@@ -44,4 +46,4 @@ COPY --from=builder /app/.next/static ./.next/static
 EXPOSE 3000
 
 # 启动应用
-CMD ["node", "server.js"] 
+CMD ["node", "server.js", "-H", "0.0.0.0"]
