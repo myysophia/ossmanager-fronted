@@ -24,7 +24,7 @@ const MotionFlex = motion(Flex);
 const features = [
   {
     title: '多云存储支持',
-    description: '支持阿里云OSS、AWS S3、Cloudflare R2等多种云存储服务',
+    description: '支持阿里云OSS、AWS S3、Cloudflare R2等多种云存储服务(V2.0将支持更多云存储服务,当前版本只支持阿里云oss)',
     icon: FiCloud,
     color: 'blue.500',
   },
