@@ -17,8 +17,10 @@ RUN npm ci --legacy-peer-deps
 COPY . .
 
 # 构建应用
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # 生产阶段
@@ -31,10 +33,12 @@ COPY package*.json ./
 RUN npm ci --only=production --legacy-peer-deps
 
 # 设置环境变量
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # 复制必要文件
 COPY --from=builder /app/next.config.js ./
