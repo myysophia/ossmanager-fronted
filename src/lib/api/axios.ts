@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://1.94.50.42:8080/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://ossmanager-api.ampaura.tech/api/v1',
   timeout: 3600000,
   headers: {
     'Content-Type': 'application/json',
