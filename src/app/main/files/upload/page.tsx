@@ -45,7 +45,7 @@ export default function UploadPage() {
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
   const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
-  const [selectedStorage, setSelectedStorage] = useState<number | null>(null);
+  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -96,18 +96,6 @@ export default function UploadPage() {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'text/plain': ['.txt'],
-      'application/zip': ['.zip'],
-      'application/x-rar-compressed': ['.rar'],
-      'application/gzip': ['.gz', '.tar.gz','.tar'],
-    },
   });
 
   const addTag = () => {
@@ -265,7 +253,7 @@ export default function UploadPage() {
               <FiUpload size={40} color="gray" />
               <Text fontSize="lg">拖放文件到此处，或点击选择文件</Text>
               <Text color="gray.500" fontSize="sm">
-                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ
+                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ, calib, auth
               </Text>
             </VStack>
           )}
@@ -276,7 +264,7 @@ export default function UploadPage() {
             <FormLabel>存储位置</FormLabel>
             <Select
               value={selectedStorage || ''}
-              onChange={(e) => setSelectedStorage(e.target.value ? Number(e.target.value) : null)}
+              onChange={(e) => setSelectedStorage(e.target.value || null)}
               placeholder="选择存储位置"
             >
               {storageConfigs.map((config) => (

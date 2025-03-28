@@ -103,7 +103,7 @@ export default function HomePage() {
               <Button
                 size="lg"
                 variant="outline"
-                onClick={() => router.push('https://github.com/yourusername/project')}
+                onClick={() => router.push('https://baidu.com')}
               >
                 查看文档
               </Button>
