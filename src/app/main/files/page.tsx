@@ -219,24 +219,31 @@ export default function FileListPage() {
     try {
       const response = await FileAPI.getFileDownloadURL(fileId);
       if (response && response.download_url) {
+        // 确保使用 HTTPS 链接
+        let secureUrl = response.download_url;
+        if (secureUrl.startsWith('http://')) {
+          secureUrl = secureUrl.replace('http://', 'https://');
+        }
+
         // 创建一个隐藏的 a 标签来下载
         const link = document.createElement('a');
-        link.href = response.download_url;
+        link.href = secureUrl;
         // 从原始文件名中获取文件扩展名
         const file = files.find(f => f.id === fileId);
         if (file) {
           link.download = file.original_filename; // 设置下载文件名
         }
         link.rel = 'noopener noreferrer'; // 添加安全属性
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        link.target = '_blank'; // 在新标签页中打开
+        
+        // 直接在新标签页中打开链接
+        window.open(secureUrl, '_blank', 'noopener,noreferrer');
         
         toast({
           title: '文件下载中',
-          description: '如果下载没有自动开始，请检查浏览器设置',
+          description: '如果下载没有自动开始，请检查浏览器是否阻止了弹出窗口',
           status: 'info',
-          duration: 3000,
+          duration: 5000,
           isClosable: true,
         });
       }
