@@ -219,14 +219,22 @@ export default function FileListPage() {
     try {
       const response = await FileAPI.getFileDownloadURL(fileId);
       if (response && response.download_url) {
-        // 删除download_url中的Expires=1742885917&
-        const downloadUrl = response.download_url.replace(/Expires=\d+&/, '');
-        console.log('downloadUrl',downloadUrl)
-        // 使用新窗口打开下载链接
-        window.open(downloadUrl, '_blank');
+        // 创建一个隐藏的 a 标签来下载
+        const link = document.createElement('a');
+        link.href = response.download_url;
+        // 从原始文件名中获取文件扩展名
+        const file = files.find(f => f.id === fileId);
+        if (file) {
+          link.download = file.original_filename; // 设置下载文件名
+        }
+        link.rel = 'noopener noreferrer'; // 添加安全属性
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         
         toast({
           title: '文件下载中',
+          description: '如果下载没有自动开始，请检查浏览器设置',
           status: 'info',
           duration: 3000,
           isClosable: true,
