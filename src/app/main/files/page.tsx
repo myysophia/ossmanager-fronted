@@ -114,7 +114,7 @@ export default function FileListPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [queryParams, setQueryParams] = useState<FileQueryParams>({
     page: 1,
-    page_size: 10,
+    page_size: 20,
     storage_type: '',
   });
   // 前端排序状态
@@ -187,12 +187,15 @@ export default function FileListPage() {
 
   useEffect(() => {
     fetchFiles();
-  }, [queryParams.page_size]); // 只在页面大小改变时重新获取数据
+  }, []); // 只在组件挂载时获取一次数据
 
   const fetchFiles = async () => {
     try {
       setLoading(true);
-      const response = await FileAPI.getFiles(queryParams);
+      const response = await FileAPI.getFiles({
+        page: 1,
+        page_size: 1000 // 获取较大数量的数据，因为要在前端处理
+      });
       
       if (response) {
         setFiles(response.items || []);
@@ -289,33 +292,39 @@ export default function FileListPage() {
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchKeyword(e.target.value);
-    setQueryParams(prev => ({
-      ...prev,
-      page: 1 // 重置到第一页
-    }));
-  };
-
-  const handleSearch = () => {
-    // 搜索时重置页码
+    // 重置到第一页
     setQueryParams(prev => ({
       ...prev,
       page: 1
     }));
   };
 
-  const handleStorageTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleSearch = () => {
+    // 搜索时重置到第一页
     setQueryParams(prev => ({
       ...prev,
-      storage_type: e.target.value
+      page: 1
     }));
   };
 
-  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setQueryParams(prev => ({
-      ...prev,
-      page: 1, // 重置页码
+  const handleStorageTypeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newParams = {
+      ...queryParams,
+      page: 1,
+      storage_type: e.target.value
+    };
+    setQueryParams(newParams);
+    await fetchFiles();
+  };
+
+  const handlePageSizeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newParams = {
+      ...queryParams,
+      page: 1,
       page_size: Number(e.target.value)
-    }));
+    };
+    setQueryParams(newParams);
+    await fetchFiles();
   };
 
   const handleSort = (field: keyof OSSFile) => {
@@ -341,8 +350,8 @@ export default function FileListPage() {
     }
   };
 
-  const handleRefresh = () => {
-    fetchFiles();
+  const handleRefresh = async () => {
+    await fetchFiles();
   };
 
   const handlePageChange = (page: number) => {
@@ -643,6 +652,10 @@ export default function FileListPage() {
                 
                 <Flex justify="space-between" mt={4}>
                   <HStack>
+                    <Text>每页 {queryParams.page_size} 条</Text>
+                    <Text mx={2}>|</Text>
+                    <Text>第 {queryParams.page} 页</Text>
+                    <Text mx={2}>|</Text>
                     <Text>共 {filteredAndSortedFiles.length} 条记录</Text>
                     <Select 
                       value={queryParams.page_size} 
