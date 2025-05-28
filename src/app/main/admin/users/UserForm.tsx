@@ -51,7 +51,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
       setEmail(user.email);
       setRealName(user.real_name || '');
       setStatus(user.status);
-      setSelectedRoles(user.roles?.map((r) => r.id) || []);
+      setSelectedRoles(Array.isArray(user.roles) ? user.roles.map((r) => r.id) : []);
     } else {
       setUsername('');
       setPassword('');
@@ -69,7 +69,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
           page: 1,
           limit: 100,
         });
-        setRoles(response.roles);
+        setRoles(response.roles || []);
       } catch (error) {
         toast({
           title: '获取角色列表失败',
@@ -173,7 +173,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
         <ModalCloseButton />
         <ModalBody>
           <VStack spacing={4}>
-            <FormControl isRequired>
+            <FormControl isRequired isInvalid={!!errors.username}>
               <FormLabel>用户名</FormLabel>
               <Input
                 value={username}
@@ -181,9 +181,10 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                 placeholder="请输入用户名"
                 isDisabled={!!user}
               />
+              {errors.username && <FormErrorMessage>{errors.username}</FormErrorMessage>}
             </FormControl>
             {!user && (
-              <FormControl isRequired>
+              <FormControl isRequired isInvalid={!!errors.password}>
                 <FormLabel>密码</FormLabel>
                 <Input
                   type="password"
@@ -191,9 +192,10 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="请输入密码"
                 />
+                {errors.password && <FormErrorMessage>{errors.password}</FormErrorMessage>}
               </FormControl>
             )}
-            <FormControl>
+            <FormControl isRequired isInvalid={!!errors.email}>
               <FormLabel>邮箱</FormLabel>
               <Input
                 type="email"
@@ -201,6 +203,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="请输入邮箱"
               />
+              {errors.email && <FormErrorMessage>{errors.email}</FormErrorMessage>}
             </FormControl>
             <FormControl>
               <FormLabel>真实姓名</FormLabel>
@@ -210,14 +213,14 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                 placeholder="请输入真实姓名"
               />
             </FormControl>
-            <FormControl display="flex" alignItems="center">
-              <FormLabel mb="0">状态</FormLabel>
+            <FormControl>
+              <FormLabel>状态</FormLabel>
               <Switch
                 isChecked={status}
                 onChange={(e) => setStatus(e.target.checked)}
                 colorScheme="green"
               />
-              <FormHelperText ml={2}>
+              <FormHelperText>
                 {status ? '启用' : '禁用'}
               </FormHelperText>
             </FormControl>
@@ -231,14 +234,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                       isChecked={selectedRoles.includes(role.id)}
                       onChange={(e) => handleRoleChange(role.id, e.target.checked)}
                     >
-                      <Box>
-                        <Text fontWeight="medium">{role.name}</Text>
-                        {role.description && (
-                          <Text fontSize="sm" color="gray.500">
-                            {role.description}
-                          </Text>
-                        )}
-                      </Box>
+                      {role.name}
                     </Checkbox>
                   ))}
                 </VStack>
@@ -255,7 +251,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
             onClick={handleSubmit}
             isLoading={loading}
           >
-            {user ? '更新' : '创建'}
+            保存
           </Button>
         </ModalFooter>
       </ModalContent>

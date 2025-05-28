@@ -20,10 +20,12 @@ import {
   Badge,
   Text,
 } from '@chakra-ui/react';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, SettingsIcon, LockIcon } from '@chakra-ui/icons';
 import { RoleAPI } from '@/lib/api/client';
 import { Role } from '@/lib/api/types';
 import RoleForm from './RoleForm';
+import RegionBucketAccessForm from './RegionBucketAccessForm';
+import RolePermissionForm from './RolePermissionForm';
 
 export default function RolesPage() {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -35,6 +37,20 @@ export default function RolesPage() {
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  
+  // 地域-桶访问权限分配模态框状态
+  const {
+    isOpen: isRegionBucketAccessOpen,
+    onOpen: onRegionBucketAccessOpen,
+    onClose: onRegionBucketAccessClose,
+  } = useDisclosure();
+
+  // 角色权限管理模态框状态
+  const {
+    isOpen: isPermissionFormOpen,
+    onOpen: onPermissionFormOpen,
+    onClose: onPermissionFormClose,
+  } = useDisclosure();
 
   const fetchRoles = async () => {
     try {
@@ -76,6 +92,16 @@ export default function RolesPage() {
   const handleEditRole = (role: Role) => {
     setSelectedRole(role);
     onOpen();
+  };
+
+  const handleRegionBucketAccess = (role: Role) => {
+    setSelectedRole(role);
+    onRegionBucketAccessOpen();
+  };
+
+  const handlePermissionManage = (role: Role) => {
+    setSelectedRole(role);
+    onPermissionFormOpen();
   };
 
   const handleDeleteRole = async (id: number) => {
@@ -151,6 +177,20 @@ export default function RolesPage() {
                     onClick={() => handleEditRole(role)}
                   />
                   <IconButton
+                    aria-label="权限管理"
+                    icon={<LockIcon />}
+                    size="sm"
+                    colorScheme="teal"
+                    onClick={() => handlePermissionManage(role)}
+                  />
+                  <IconButton
+                    aria-label="地域-桶访问权限"
+                    icon={<SettingsIcon />}
+                    size="sm"
+                    colorScheme="purple"
+                    onClick={() => handleRegionBucketAccess(role)}
+                  />
+                  <IconButton
                     aria-label="删除角色"
                     icon={<DeleteIcon />}
                     size="sm"
@@ -192,6 +232,24 @@ export default function RolesPage() {
         role={selectedRole}
         onSuccess={fetchRoles}
       />
+
+      {selectedRole && (
+        <>
+          <RegionBucketAccessForm
+            isOpen={isRegionBucketAccessOpen}
+            onClose={onRegionBucketAccessClose}
+            roleId={selectedRole.id}
+            roleName={selectedRole.name}
+            onSuccess={fetchRoles}
+          />
+          <RolePermissionForm
+            isOpen={isPermissionFormOpen}
+            onClose={onPermissionFormClose}
+            role={selectedRole}
+            onSuccess={fetchRoles}
+          />
+        </>
+      )}
     </Box>
   );
 } 

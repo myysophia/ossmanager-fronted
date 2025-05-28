@@ -260,4 +260,25 @@ export interface UpdateRoleRequest {
   name: string;
   description?: string;
   permission_ids: number[];
+}
+
+export interface RegionBucketMapping {
+  id: number;
+  region_code: string;
+  bucket_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegionBucketMappingListResponse {
+  mappings: RegionBucketMapping[];
+  total: number;
+}
+
+export interface RoleRegionBucketAccessResponse {
+  mapping_ids: number[];
+}
+
+export interface UpdateRoleRegionBucketAccessRequest {
+  mapping_ids: number[];
 } 

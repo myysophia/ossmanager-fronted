@@ -140,7 +140,7 @@ export default function RoleForm({
     }
   };
 
-  const groupedPermissions = permissions.reduce((acc, permission) => {
+  const groupedPermissions = (permissions ?? []).reduce((acc, permission) => {
     const resource = permission.resource;
     if (!acc[resource]) {
       acc[resource] = [];
