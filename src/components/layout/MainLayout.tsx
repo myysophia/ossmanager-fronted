@@ -351,7 +351,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   // 导航处理函数
   const navigateTo = useCallback((path: string) => {
     if (path === pathname) return; // 避免相同路径的重复导航
-    
     setIsLoading(true);
     try {
       router.push(path);
@@ -375,24 +374,52 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     setSidebarCollapsed(prev => !prev);
   }, []);
 
-  // 只在组件挂载时获取用户信息
+  // 只在组件挂载时获取用户信息（优先接口，兼容本地缓存）
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-      } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
-        router.push('/auth/login');
+    async function fetchUser() {
+      try {
+        const res = await fetch('/api/v1/user/current', { credentials: 'include' });
+        const json = await res.json();
+        if (json.code === 200 && json.data) {
+          setUser(json.data);
+          localStorage.setItem('user', JSON.stringify(json.data)); // 同步本地
+        } else {
+          // 兼容本地缓存
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            setUser(JSON.parse(userStr));
+          } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
+            router.push('/auth/login');
+          }
+        }
+      } catch (error) {
+        // 兼容本地缓存
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          setUser(JSON.parse(userStr));
+        } else {
+          router.push('/auth/login');
+        }
       }
-    } catch (error) {
-      console.error('[用户数据错误]:', error);
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      router.push('/auth/login');
     }
+    fetchUser();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 判断是否有 MANAGER 权限
+  function hasManagerPermission(user: any): boolean {
+    if (!user || !user.permissions) return false;
+    return user.permissions.some((p: any) => p.resource === 'MANAGER');
+  }
+
+  // 动态过滤菜单项
+  const filteredMenuItems = MENU_ITEMS.filter(item => {
+    if (!item.permissions) return true;
+    if (item.permissions.includes('admin')) {
+      return hasManagerPermission(user);
+    }
+    return true;
+  });
 
   // 登录页或注册页不显示布局
   if (pathname === '/auth/login' || pathname === '/auth/register') {
@@ -413,7 +440,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <MobileDrawer 
         isOpen={isOpen} 
         onClose={onClose}
-        items={MENU_ITEMS}
+        items={filteredMenuItems}
         isActiveRoute={isActiveRoute}
         isLoading={isLoading}
         onNavigate={navigateTo}
@@ -423,7 +450,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <DesktopSidebar 
         isCollapsed={isSidebarCollapsed}
         onToggle={toggleSidebar}
-        items={MENU_ITEMS}
+        items={filteredMenuItems}
         isActiveRoute={isActiveRoute}
         isLoading={isLoading}
         onNavigate={navigateTo}
