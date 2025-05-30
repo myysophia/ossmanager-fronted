@@ -144,8 +144,34 @@ export const RoleAPI = {
 
 export const PermissionAPI = {
   getPermissions: async (params: { page: number; limit: number; search?: string }) => {
-    const response = await apiClient.get<PermissionListResponse>('/permissions', { params });
-    return response.data;
+    try {
+      const response = await apiClient.get<PermissionListResponse>('/permissions', { params });
+      console.log('PermissionAPI.getPermissions response:', response);
+      console.log('PermissionAPI.getPermissions response.data:', response.data);
+
+      if (response.data && response.data.items) {
+        console.log('PermissionAPI.getPermissions response.data.items:', response.data.items);
+        return {
+          permissions: response.data.items,
+          total: response.data.total
+        };
+      }
+
+      if (Array.isArray(response.data)) {
+        return {
+          permissions: response.data,
+          total: response.data.length
+        };
+      }
+
+      return {
+        permissions: [],
+        total: 0
+      };
+    } catch (error) {
+      console.error('PermissionAPI.getPermissions error:', error);
+      throw error;
+    }
   },
 
   getPermission: async (id: number) => {

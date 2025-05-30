@@ -54,12 +54,16 @@ export default function RolePermissionForm({
         page: 1,
         limit: 100,
       });
+      console.log('获取到的权限数据:', permissionsResponse);
       setPermissions(permissionsResponse.permissions);
+      console.log('设置后的 permissions 状态:', permissionsResponse.permissions);
 
       // 获取角色已分配的权限
       const roleResponse = await RoleAPI.getRole(role.id);
+      console.log('获取到的角色权限数据:', roleResponse);
       setSelectedPermissions(roleResponse.permissions?.map((p) => p.id) || []);
     } catch (error) {
+      console.error('获取数据失败:', error);
       toast({
         title: '获取数据失败',
         description: error instanceof Error ? error.message : '未知错误',
@@ -119,6 +123,10 @@ export default function RolePermissionForm({
     return acc;
   }, {} as Record<string, Permission[]>);
 
+  console.log('计算后的 groupedPermissions:', groupedPermissions);
+  console.log('当前 permissions 状态:', permissions);
+  console.log('当前 selectedPermissions 状态:', selectedPermissions);
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl">
       <ModalOverlay />
@@ -130,34 +138,40 @@ export default function RolePermissionForm({
             <FormControl>
               <FormLabel>权限列表</FormLabel>
               <Box maxH="400px" overflowY="auto" borderWidth={1} borderRadius="md" p={4}>
-                {Object.entries(groupedPermissions).map(([resource, perms]) => (
-                  <Box key={resource} mb={4}>
-                    <Text fontWeight="bold" mb={2}>
-                      {resource}
-                    </Text>
-                    <VStack align="start" spacing={2}>
-                      {perms.map((permission) => (
-                        <Checkbox
-                          key={permission.id}
-                          isChecked={selectedPermissions.includes(permission.id)}
-                          onChange={(e) =>
-                            handlePermissionChange(permission.id, e.target.checked)
-                          }
-                        >
-                          <Box>
-                            <Text fontWeight="medium">{permission.name}</Text>
-                            {permission.description && (
-                              <Text fontSize="sm" color="gray.500">
-                                {permission.description}
-                              </Text>
-                            )}
-                          </Box>
-                        </Checkbox>
-                      ))}
-                    </VStack>
-                    <Divider my={2} />
-                  </Box>
-                ))}
+                {loading ? (
+                  <Text>加载中...</Text>
+                ) : Object.keys(groupedPermissions).length === 0 ? (
+                  <Text>暂无权限数据</Text>
+                ) : (
+                  Object.entries(groupedPermissions).map(([resource, perms]) => (
+                    <Box key={resource} mb={4}>
+                      <Text fontWeight="bold" mb={2}>
+                        {resource}
+                      </Text>
+                      <VStack align="start" spacing={2}>
+                        {perms.map((permission) => (
+                          <Checkbox
+                            key={permission.id}
+                            isChecked={selectedPermissions.includes(permission.id)}
+                            onChange={(e) =>
+                              handlePermissionChange(permission.id, e.target.checked)
+                            }
+                          >
+                            <Box>
+                              <Text fontWeight="medium">{permission.name}</Text>
+                              {permission.description && (
+                                <Text fontSize="sm" color="gray.500">
+                                  {permission.description}
+                                </Text>
+                              )}
+                            </Box>
+                          </Checkbox>
+                        ))}
+                      </VStack>
+                      <Divider my={2} />
+                    </Box>
+                  ))
+                )}
               </Box>
             </FormControl>
           </VStack>

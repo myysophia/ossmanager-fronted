@@ -67,7 +67,7 @@ export interface Permission {
 }
 
 export interface PermissionListResponse {
-  permissions: Permission[];
+  items: Permission[];
   total: number;
 }
 
