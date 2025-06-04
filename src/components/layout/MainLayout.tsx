@@ -41,6 +41,8 @@ import {
   FiSun
 } from 'react-icons/fi';
 import { ColorModeToggle } from '../common/ColorModeToggle';
+import apiClient from '@/lib/api/axios';
+import { debug, log } from 'console';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -378,25 +380,48 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   useEffect(() => {
     async function fetchUser() {
       try {
-        const res = await fetch('/api/v1/user/current', { credentials: 'include' });
-        const json = await res.json();
-        if (json.code === 200 && json.data) {
-          setUser(json.data);
-          localStorage.setItem('user', JSON.stringify(json.data)); // 同步本地
+        const res = await apiClient.get('/user/current');
+        console.log('API Response:', res);
+        const userData = res.data;
+        console.log('Response Data:', userData);
+        
+        if (userData && userData.permissions) {
+          // 确保 permissions 是数组
+          const processedUserData = {
+            ...userData,
+            permissions: Array.isArray(userData.permissions) ? userData.permissions : []
+          };
+          
+          console.log('Processed User Data:', processedUserData);
+          setUser(processedUserData);
+          localStorage.setItem('user', JSON.stringify(processedUserData));
+          
+          console.log('Updated user permissions:', processedUserData.permissions);
         } else {
+          console.log('API response validation failed:', {
+            hasUserData: !!userData,
+            hasPermissions: !!userData?.permissions
+          });
           // 兼容本地缓存
           const userStr = localStorage.getItem('user');
           if (userStr) {
-            setUser(JSON.parse(userStr));
+            const cachedUser = JSON.parse(userStr);
+            console.log('Using cached user:', cachedUser);
+            setUser(cachedUser);
+            console.log('Using cached user permissions:', cachedUser.permissions);
           } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
             router.push('/auth/login');
           }
         }
       } catch (error) {
+        console.error('Error fetching user:', error);
         // 兼容本地缓存
         const userStr = localStorage.getItem('user');
         if (userStr) {
-          setUser(JSON.parse(userStr));
+          const cachedUser = JSON.parse(userStr);
+          console.log('Using cached user after error:', cachedUser);
+          setUser(cachedUser);
+          console.log('Using cached user permissions after error:', cachedUser.permissions);
         } else {
           router.push('/auth/login');
         }
@@ -408,7 +433,9 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // 判断是否有 MANAGER 权限
   function hasManagerPermission(user: any): boolean {
+    debugger
     if (!user || !user.permissions) return false;
+    debugger
     return user.permissions.some((p: any) => p.resource === 'MANAGER');
   }
 
