@@ -433,9 +433,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // 判断是否有 MANAGER 权限
   function hasManagerPermission(user: any): boolean {
-    debugger
     if (!user || !user.permissions) return false;
-    debugger
     return user.permissions.some((p: any) => p.resource === 'MANAGER');
   }
 
