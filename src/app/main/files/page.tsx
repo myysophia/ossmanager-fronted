@@ -140,6 +140,8 @@ export default function FileListPage() {
     actions: 100,
   });
 
+  const [userPermissions, setUserPermissions] = useState<any[]>([]);
+
   // 获取排序和搜索过滤后的文件列表
   const filteredAndSortedFiles = useMemo(() => {
     // 先进行搜索过滤
@@ -185,6 +187,12 @@ export default function FileListPage() {
 
   useEffect(() => {
     fetchFiles();
+    // 获取用户权限
+    fetch('/api/v1/user/current')
+      .then(res => res.json())
+      .then(data => {
+        setUserPermissions(data.permissions || []);
+      });
   }, []); // 只在组件挂载时获取一次数据
 
   const fetchFiles = async () => {
@@ -396,6 +404,14 @@ export default function FileListPage() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  // 判断是否有删除权限
+  const canDeleteFile = useMemo(() =>
+    userPermissions.some(
+      (p: any) => p.resource === 'FILE' && p.action === 'DELETE'
+    ),
+    [userPermissions]
+  );
+
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={6}>
@@ -535,13 +551,15 @@ export default function FileListPage() {
                               size="sm"
                               onClick={() => handleDownload(file.id)}
                             />
-                            <IconButton
-                              aria-label="删除文件"
-                              icon={<FiTrash2 />}
-                              size="sm"
-                              colorScheme="red"
-                              onClick={() => confirmDelete(file.id)}
-                            />
+                            {canDeleteFile && (
+                              <IconButton
+                                aria-label="删除文件"
+                                icon={<FiTrash2 />}
+                                size="sm"
+                                colorScheme="red"
+                                onClick={() => confirmDelete(file.id)}
+                              />
+                            )}
                           </HStack>
                         </Td>
                       </Tr>
