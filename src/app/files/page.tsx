@@ -36,6 +36,7 @@ interface File {
   status: 'uploading' | 'completed' | 'failed' | 'deleted';
   uploadTime: string;
   tags: string[];
+  bucket?: string;
 }
 
 interface QueryParams {
@@ -118,6 +119,7 @@ export default function FileListPage() {
 
   const handleDownload = async (file: File) => {
     try {
+      debugger
       const response = await fetch(`/api/files/${file.id}/download`);
       if (!response.ok) {
         throw new Error('下载失败');
@@ -301,6 +303,7 @@ export default function FileListPage() {
                 >
                   存储类型
                 </Th>
+                <Th>Bucket</Th>
                 <Th
                   cursor="pointer"
                   onClick={() => handleSort('status')}
@@ -332,6 +335,7 @@ export default function FileListPage() {
                   </Td>
                   <Td>{(file.size / 1024 / 1024).toFixed(2)} MB</Td>
                   <Td>{file.storageType}</Td>
+                  <Td>{file.bucket || '-'}</Td>
                   <Td>
                     <Badge colorScheme={getStatusColor(file.status)}>
                       {file.status}

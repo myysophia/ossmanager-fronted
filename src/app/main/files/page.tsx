@@ -40,6 +40,8 @@ import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw } from 'rea
 import { FileAPI } from '@/lib/api/files';
 import { OSSFile, FileQueryParams } from '@/lib/api/types';
 import { css } from '@emotion/react';
+import { debug } from 'console';
+import apiClient from '@/lib/api/axios';
 
 // 添加可调整列宽的样式
 const resizableTableStyles = css`
@@ -188,11 +190,11 @@ export default function FileListPage() {
   useEffect(() => {
     fetchFiles();
     // 获取用户权限
-    fetch('/api/v1/user/current')
-      .then(res => res.json())
-      .then(data => {
-        setUserPermissions(data.permissions || []);
-      });
+    apiClient.get('/user/current')
+      .then(res => {
+        setUserPermissions(res.data.permissions || []);
+      })
+      .catch(() => setUserPermissions([]));
   }, []); // 只在组件挂载时获取一次数据
 
   const fetchFiles = async () => {
@@ -403,7 +405,6 @@ export default function FileListPage() {
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
   };
-
   // 判断是否有删除权限
   const canDeleteFile = useMemo(() =>
     userPermissions.some(
@@ -411,7 +412,6 @@ export default function FileListPage() {
     ),
     [userPermissions]
   );
-
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={6}>
