@@ -342,6 +342,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const pathname = usePathname();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [user, setUser] = useState<any>(null);
+  const [userLoading, setUserLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -381,50 +382,33 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     async function fetchUser() {
       try {
         const res = await apiClient.get('/user/current');
-        console.log('API Response:', res);
         const userData = res.data;
-        console.log('Response Data:', userData);
-        
         if (userData && userData.permissions) {
-          // 确保 permissions 是数组
           const processedUserData = {
             ...userData,
             permissions: Array.isArray(userData.permissions) ? userData.permissions : []
           };
-          
-          console.log('Processed User Data:', processedUserData);
           setUser(processedUserData);
           localStorage.setItem('user', JSON.stringify(processedUserData));
-          
-          console.log('Updated user permissions:', processedUserData.permissions);
         } else {
-          console.log('API response validation failed:', {
-            hasUserData: !!userData,
-            hasPermissions: !!userData?.permissions
-          });
-          // 兼容本地缓存
           const userStr = localStorage.getItem('user');
           if (userStr) {
             const cachedUser = JSON.parse(userStr);
-            console.log('Using cached user:', cachedUser);
             setUser(cachedUser);
-            console.log('Using cached user permissions:', cachedUser.permissions);
           } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
             router.push('/auth/login');
           }
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
-        // 兼容本地缓存
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const cachedUser = JSON.parse(userStr);
-          console.log('Using cached user after error:', cachedUser);
           setUser(cachedUser);
-          console.log('Using cached user permissions after error:', cachedUser.permissions);
         } else {
           router.push('/auth/login');
         }
+      } finally {
+        setUserLoading(false);
       }
     }
     fetchUser();
@@ -449,6 +433,23 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   // 登录页或注册页不显示布局
   if (pathname === '/auth/login' || pathname === '/auth/register') {
     return <>{children}</>;
+  }
+
+  // 修复左侧栏闪烁：用户权限未加载完成前渲染固定宽度占位
+  if (userLoading) {
+    return (
+      <Box minH="100vh" display="flex">
+        <Box
+          w={{ base: 0, md: isSidebarCollapsed ? '60px' : '220px' }}
+          bg="gray.800"
+          minH="100vh"
+          transition="width 0.3s ease"
+        />
+        <Box flex={1} bg="white">
+          {/* 可选：顶部导航等 */}
+        </Box>
+      </Box>
+    );
   }
 
   return (

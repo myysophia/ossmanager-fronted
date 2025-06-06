@@ -143,6 +143,7 @@ export default function FileListPage() {
   });
 
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
 
   // 获取排序和搜索过滤后的文件列表
   const filteredAndSortedFiles = useMemo(() => {
@@ -194,7 +195,7 @@ export default function FileListPage() {
       .then(res => {
         setUserPermissions(res.data.permissions || []);
       })
-      .catch(() => setUserPermissions([]));
+      .finally(() => setPermissionsLoading(false));
   }, []); // 只在组件挂载时获取一次数据
 
   const fetchFiles = async () => {
@@ -412,6 +413,11 @@ export default function FileListPage() {
     ),
     [userPermissions]
   );
+
+  if (permissionsLoading) {
+    return <div>加载中...</div>;
+  }
+
   return (
     <Container maxW="container.xl" py={10}>
       <Box mb={6}>
