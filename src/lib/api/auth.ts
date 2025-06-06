@@ -14,8 +14,7 @@ export const AuthAPI = {
     try {
       const response = await apiClient.post<ApiResponse<LoginResponse>>('/auth/login', params);
       
-      // 打印响应数据，方便调试
-      console.log('登录响应数据:', response);
+      // console.log('登录响应数据:', response);
       
       // 验证响应数据
       if (!response.data || typeof response.data !== 'object') {

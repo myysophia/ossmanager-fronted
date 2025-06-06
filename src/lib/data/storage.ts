@@ -10,7 +10,7 @@ export class StorageConfigService {
    * 获取所有存储配置
    */
   static async getAllStorageConfigs(): Promise<StorageConfig[]> {
-    console.log('调用 getAllStorageConfigs');
+    // console.log('调用 getAllStorageConfigs');
     try {
       interface StorageConfigListResponse {
         items: StorageConfig[];
@@ -19,7 +19,7 @@ export class StorageConfigService {
 
       const response = await apiClient.get<StorageConfigListResponse>('/oss/configs');
       
-      console.log('API响应数据:', response.data);
+        // console.log('API响应数据:', response.data);
       
       const responseData = response.data;
       if (!responseData || typeof responseData !== 'object') {
@@ -37,7 +37,7 @@ export class StorageConfigService {
         throw new Error('API响应items字段格式错误');
       }
 
-      console.log('解析后的存储配置列表:', responseData.items);
+        // console.log('解析后的存储配置列表:', responseData.items);
       return responseData.items;
     } catch (error) {
       console.error('获取存储配置失败:', error);
@@ -49,7 +49,7 @@ export class StorageConfigService {
    * 获取单个存储配置
    */
   static async getStorageConfig(id: number): Promise<StorageConfig> {
-    console.log('调用 getStorageConfig, id:', id);
+    // console.log('调用 getStorageConfig, id:', id);
     try {
       interface SingleConfigResponse {
         code: number;
@@ -74,7 +74,7 @@ export class StorageConfigService {
    * 创建存储配置
    */
   static async createStorageConfig(config: StorageConfigInput): Promise<StorageConfig> {
-    console.log('调用 createStorageConfig, config:', config);
+    // console.log('调用 createStorageConfig, config:', config);
     try {
       interface CreateConfigResponse {
         code: number;
@@ -99,7 +99,7 @@ export class StorageConfigService {
    * 更新存储配置
    */
   static async updateStorageConfig(id: number, config: Partial<StorageConfigInput>): Promise<StorageConfig> {
-    console.log('调用 updateStorageConfig, id:', id, 'config:', config);
+    // console.log('调用 updateStorageConfig, id:', id, 'config:', config);
     try {
       interface UpdateConfigResponse {
         code: number;
@@ -124,7 +124,7 @@ export class StorageConfigService {
    * 删除存储配置
    */
   static async deleteStorageConfig(id: number): Promise<void> {
-    console.log('调用 deleteStorageConfig, id:', id);
+    // console.log('调用 deleteStorageConfig, id:', id);
     try {
       interface DeleteConfigResponse {
         code: number;
@@ -138,7 +138,7 @@ export class StorageConfigService {
         throw new Error('删除配置失败');
       }
       
-      console.log('删除配置成功');
+      // console.log('删除配置成功');
     } catch (error) {
       console.error('删除配置失败:', error);
       throw error;

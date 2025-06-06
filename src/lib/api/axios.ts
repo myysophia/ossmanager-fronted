@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { createLogger } from '../logger';
+
+const log = createLogger('axios');
 
 // 创建axios实例
 const apiClient = axios.create({
@@ -20,8 +23,8 @@ apiClient.interceptors.request.use(
       }
     }
     
-    // 添加请求日志
-    console.log('发送请求:', {
+    // 请求日志
+    log('request', {
       url: config.url,
       method: config.method,
       baseURL: config.baseURL,
@@ -40,8 +43,8 @@ apiClient.interceptors.request.use(
 // 响应拦截器
 apiClient.interceptors.response.use(
   (response) => {
-    // 添加响应日志
-    console.log('收到响应:', {
+    // 响应日志
+    log('response', {
       url: response.config.url,
       status: response.status,
       data: response.data

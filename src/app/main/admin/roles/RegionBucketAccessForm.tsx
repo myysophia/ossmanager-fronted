@@ -52,7 +52,7 @@ export default function RegionBucketAccessForm({
   isOpen, onClose, roleId, roleName, onSuccess
 }: RegionBucketAccessFormProps) {
   // === >>> 在这里添加这行日志 <<< ===
-  console.log("RegionBucketAccessForm Props:", { isOpen, roleId, roleName }); 
+  // console.log("RegionBucketAccessForm Props:", { isOpen, roleId, roleName });
   // ===================================
 
   const toast = useToast();
@@ -87,7 +87,7 @@ export default function RegionBucketAccessForm({
       const items = res?.data?.items ?? [];
       setAllAvailableMappings(items);
       setFilteredMappings(items); // 初始时显示所有数据
-      console.log('Initial data loaded:', items);
+      // console.log('Initial data loaded:', items);
     } catch (error: any) {
       console.error("Failed to fetch all mappings:", error);
       toast({ title: '加载所有地域-桶失败', description: error.message || '请检查网络或后端服务。', status: 'error', duration: 3000 });
@@ -98,7 +98,7 @@ export default function RegionBucketAccessForm({
 
   // 获取当前角色已分配的地域-桶（右侧列表数据）
   const fetchAssignedMappings = useCallback(async () => {
-    console.log("Fetching assigned mappings for roleId:", roleId);
+    // console.log("Fetching assigned mappings for roleId:", roleId);
     if (!roleId) {
       console.warn("roleId is undefined or null in fetchAssignedMappings, skipping.");
       return;
@@ -106,7 +106,7 @@ export default function RegionBucketAccessForm({
     setLoadingRight(true);
     try {
       const res = await RoleAPI.getRoleRegionBucketAccess(roleId);
-      console.log("Raw API Response (Assigned Mappings):", res);
+      // console.log("Raw API Response (Assigned Mappings):", res);
 
       // 修改数据处理逻辑
       let mappings: RegionBucketMapping[] = [];
@@ -121,7 +121,7 @@ export default function RegionBucketAccessForm({
         }
       }
       
-      console.log("Processed assigned mappings:", mappings);
+      // console.log("Processed assigned mappings:", mappings);
       setCurrentAssignedMappings(mappings);
 
     } catch (error: any) {
@@ -135,9 +135,9 @@ export default function RegionBucketAccessForm({
   // --- useEffect 钩子管理数据加载和状态重置 ---
   // Modal打开时，进行初始数据加载和状态重置
   useEffect(() => {
-    console.log("useEffect triggered. isOpen:", isOpen, "roleId:", roleId);
+    // console.log("useEffect triggered. isOpen:", isOpen, "roleId:", roleId);
     if (!isOpen || !roleId) {
-      console.log("Modal not open or roleId missing, returning early from useEffect.");
+      // console.log("Modal not open or roleId missing, returning early from useEffect.");
       // 模态框关闭时，重置所有状态，防止下次打开时保留旧数据
       setAllAvailableMappings([]);
       setCurrentPage(1);
@@ -151,7 +151,7 @@ export default function RegionBucketAccessForm({
       return;
     }
 
-    console.log("Modal opened and roleId is valid. Triggering initial data fetch.");
+    // console.log("Modal opened and roleId is valid. Triggering initial data fetch.");
     // 第一次打开时，并行加载左右两侧数据
     fetchAllMappings();
     fetchAssignedMappings();
@@ -184,7 +184,7 @@ export default function RegionBucketAccessForm({
         mapping.bucket_name.toLowerCase().includes(searchValue) ||
         mapping.region_code.toLowerCase().includes(searchValue)
       );
-      console.log('Filter changed, new filtered results:', filtered);
+      // console.log('Filter changed, new filtered results:', filtered);
       setFilteredMappings(filtered);
     } else {
       setFilteredMappings(allAvailableMappings);
@@ -194,9 +194,9 @@ export default function RegionBucketAccessForm({
   // 左侧显示的可供选择的列表 (当前页 + 排除已分配的)
   const leftList = useMemo(
     () => {
-      console.log('Computing leftList with filteredMappings:', filteredMappings);
+      // console.log('Computing leftList with filteredMappings:', filteredMappings);
       const filtered = filteredMappings.filter(m => !assignedIdsSet.has(m.id));
-      console.log('Filtered leftList:', filtered);
+      // console.log('Filtered leftList:', filtered);
       return filtered;
     },
     [filteredMappings, assignedIdsSet]
@@ -269,11 +269,11 @@ export default function RegionBucketAccessForm({
 
   // 计算当前页的数据
   const paginatedMappings = useMemo(() => {
-    console.log('Computing paginatedMappings with leftList:', leftList);
+    // console.log('Computing paginatedMappings with leftList:', leftList);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const paginated = leftList.slice(startIndex, endIndex);
-    console.log('Paginated results:', paginated);
+    // console.log('Paginated results:', paginated);
     return paginated;
   }, [leftList, currentPage, itemsPerPage]);
 

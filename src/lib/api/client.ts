@@ -22,9 +22,9 @@ import {
 export const UserAPI = {
   // 获取用户列表
   getUsers: async (params: { page: number; limit: number; search?: string }): Promise<PageResponse<User>> => {
-    console.log('UserAPI.getUsers called with params:', params); // 添加日志
+    // console.log('UserAPI.getUsers called with params:', params); // 添加日志
     const response = await apiClient.get<PageResponse<User>>('/users', { params });
-    console.log('UserAPI.getUsers raw response:', response); // 添加日志
+    // console.log('UserAPI.getUsers raw response:', response); // 添加日志
     return response.data;
   },
 
@@ -146,11 +146,11 @@ export const PermissionAPI = {
   getPermissions: async (params: { page: number; limit: number; search?: string }) => {
     try {
       const response = await apiClient.get<PermissionListResponse>('/permissions', { params });
-      console.log('PermissionAPI.getPermissions response:', response);
-      console.log('PermissionAPI.getPermissions response.data:', response.data);
+      // console.log('PermissionAPI.getPermissions response:', response);
+      // console.log('PermissionAPI.getPermissions response.data:', response.data);
 
       if (response.data && response.data.items) {
-        console.log('PermissionAPI.getPermissions response.data.items:', response.data.items);
+        // console.log('PermissionAPI.getPermissions response.data.items:', response.data.items);
         return {
           permissions: response.data.items,
           total: response.data.total

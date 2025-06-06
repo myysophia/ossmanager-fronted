@@ -40,7 +40,7 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      console.log('Fetching users with params:', { page, limit, search });
+      // console.log('Fetching users with params:', { page, limit, search });
       
       const response = await UserAPI.getUsers({
         page,
@@ -48,7 +48,7 @@ export default function UsersPage() {
         search: search || undefined,
       });
       
-      console.log('Raw API Response:', response);
+      // console.log('Raw API Response:', response);
       
       if (!response) {
         console.error('Response is null or undefined');
@@ -65,11 +65,11 @@ export default function UsersPage() {
         throw new Error('Invalid API response: items is not an array');
       }
 
-      console.log('Response items:', response.items);
-      console.log('Response total:', response.total);
+      // console.log('Response items:', response.items);
+      // console.log('Response total:', response.total);
 
       const usersWithRoles = response.items.map(user => {
-        console.log('Processing user:', user);
+        // console.log('Processing user:', user);
         return {
           ...user,
           roles: Array.isArray(user.roles) ? user.roles : [],
@@ -79,7 +79,7 @@ export default function UsersPage() {
         };
       });
 
-      console.log('Processed users:', usersWithRoles);
+      // console.log('Processed users:', usersWithRoles);
       
       setUsers(usersWithRoles);
       setTotal(response.total || usersWithRoles.length);

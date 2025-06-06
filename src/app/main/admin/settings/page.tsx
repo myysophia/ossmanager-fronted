@@ -78,17 +78,17 @@ export default function SettingsPage() {
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
   useEffect(() => {
-    console.log('组件加载，开始获取配置');
+    // console.log('组件加载，开始获取配置');
     fetchStorageConfigs();
     fetchSystemConfig();
   }, []);
 
   const fetchStorageConfigs = async () => {
-    console.log('开始获取存储配置列表');
+    // console.log('开始获取存储配置列表');
     setLoading(true);
     try {
       const configs = await StorageConfigService.getAllStorageConfigs();
-      console.log('获取到存储配置:', configs);
+      // console.log('获取到存储配置:', configs);
       setStorageConfigs(configs);
     } catch (error) {
       console.error('获取存储配置失败:', error);
@@ -105,11 +105,11 @@ export default function SettingsPage() {
   };
 
   const fetchSystemConfig = async () => {
-    console.log('开始获取系统配置');
+    // console.log('开始获取系统配置');
     setSystemLoading(true);
     try {
       const config = await SystemConfigService.getConfig();
-      console.log('获取到系统配置:', config);
+      // console.log('获取到系统配置:', config);
       setSystemConfig(config);
     } catch (error) {
       console.error('获取系统配置失败:', error);
@@ -240,9 +240,9 @@ export default function SettingsPage() {
 
   const handleUpdateSystemConfig = async () => {
     try {
-      console.log('开始更新系统配置');
+      // console.log('开始更新系统配置');
       const updatedConfig = await SystemConfigService.updateConfig(systemConfig);
-      console.log('系统配置更新成功:', updatedConfig);
+      // console.log('系统配置更新成功:', updatedConfig);
       setSystemConfig(updatedConfig);
       toast({
         title: '更新系统配置成功',
