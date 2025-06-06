@@ -312,21 +312,27 @@ const DesktopSidebar = React.memo(({
           onClick={onToggle}
         />
 
-        <VStack 
-          spacing={1} 
-          align="stretch" 
-          p={3} 
-          pt={10}
-        >
+        <VStack spacing={1} align="stretch" p={3} pt={10}>
           {items.map((item, index) => (
-            <MenuItemButton
+            <Button
               key={index}
-              item={item}
+              leftIcon={item.icon}
+              variant="ghost"
+              w="100%"
+              justifyContent="flex-start"
+              h="40px"
+              px={4}
+              borderRadius="md"
+              color={isActiveRoute(item.path) ? "blue.500" : undefined}
+              fontWeight={isActiveRoute(item.path) ? "bold" : "normal"}
               isActive={isActiveRoute(item.path)}
-              isLoading={isLoading && isActiveRoute(item.path)}
-              isCollapsed={isCollapsed}
               onClick={() => onNavigate(item.path)}
-            />
+              _hover={{ bg: "gray.100" }}
+              _active={{ bg: "gray.200" }}
+              style={{ zIndex: 1 }}
+            >
+              {item.label}
+            </Button>
           ))}
         </VStack>
       </Flex>
@@ -348,7 +354,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // 检查当前路径是否匹配菜单项路径
   const isActiveRoute = useCallback((menuPath: string) => {
-    return pathname === menuPath || pathname?.startsWith(menuPath + '/');
+    // 精确匹配
+    return pathname === menuPath;
   }, [pathname]);
 
   // 导航处理函数
