@@ -25,24 +25,42 @@ import { AuthAPI } from '@/lib/api/auth';
 const MotionBox = motion(Box);
 const IllustrationWrapper = motion(Box);
 
+function generateCaptcha() {
+  // 生成4位数字验证码
+  return Math.random().toString().slice(2, 6);
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [captcha, setCaptcha] = useState(generateCaptcha());
+  const [captchaInput, setCaptchaInput] = useState('');
+  const [captchaError, setCaptchaError] = useState('');
   const router = useRouter();
   const toast = useToast();
 
+  const refreshCaptcha = () => {
+    setCaptcha(generateCaptcha());
+    setCaptchaInput('');
+    setCaptchaError('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCaptchaError('');
+    if (captchaInput !== captcha) {
+      setCaptchaError('验证码错误');
+      refreshCaptcha();
+      return;
+    }
     setIsLoading(true);
-
     try {
       const response = await AuthAPI.login({
         username: email,
         password: password,
       });
-
       if (response) {
         toast({
           title: '登录成功',
@@ -312,6 +330,40 @@ export default function LoginPage() {
                     size="lg"
                     borderRadius="md"
                   />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>验证码</FormLabel>
+                  <Flex align="center">
+                    <Input
+                      type="text"
+                      placeholder="请输入验证码"
+                      value={captchaInput}
+                      onChange={(e) => setCaptchaInput(e.target.value)}
+                      size="lg"
+                      borderRadius="md"
+                      maxLength={4}
+                    />
+                    <Box
+                      ml={3}
+                      px={3}
+                      py={2}
+                      bg={useColorModeValue('gray.200', 'gray.600')}
+                      borderRadius="md"
+                      fontWeight="bold"
+                      fontSize="lg"
+                      letterSpacing="4px"
+                      cursor="pointer"
+                      userSelect="none"
+                      onClick={refreshCaptcha}
+                      title="点击刷新验证码"
+                    >
+                      {captcha}
+                    </Box>
+                  </Flex>
+                  {captchaError && (
+                    <Text color="red.500" fontSize="sm" mt={1}>{captchaError}</Text>
+                  )}
                 </FormControl>
 
                 <Stack spacing={5}>
