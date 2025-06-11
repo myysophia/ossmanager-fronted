@@ -54,13 +54,13 @@ export default function RolePermissionForm({
         page: 1,
         limit: 100,
       });
-      console.log('获取到的权限数据:', permissionsResponse);
+      // console.log('获取到的权限数据:', permissionsResponse);
       setPermissions(permissionsResponse.permissions);
-      console.log('设置后的 permissions 状态:', permissionsResponse.permissions);
+      // console.log('设置后的 permissions 状态:', permissionsResponse.permissions);
 
       // 获取角色已分配的权限
       const roleResponse = await RoleAPI.getRole(role.id);
-      console.log('获取到的角色权限数据:', roleResponse);
+      // console.log('获取到的角色权限数据:', roleResponse);
       setSelectedPermissions(roleResponse.permissions?.map((p) => p.id) || []);
     } catch (error) {
       console.error('获取数据失败:', error);
@@ -123,9 +123,9 @@ export default function RolePermissionForm({
     return acc;
   }, {} as Record<string, Permission[]>);
 
-  console.log('计算后的 groupedPermissions:', groupedPermissions);
-  console.log('当前 permissions 状态:', permissions);
-  console.log('当前 selectedPermissions 状态:', selectedPermissions);
+  // console.log('计算后的 groupedPermissions:', groupedPermissions);
+  // console.log('当前 permissions 状态:', permissions);
+  // console.log('当前 selectedPermissions 状态:', selectedPermissions);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="xl">
