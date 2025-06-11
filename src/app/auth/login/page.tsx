@@ -323,13 +323,13 @@ export default function LoginPage() {
                     >
                       记住我
                     </Checkbox>
-                    <Link
+                    {/* <Link
                       color="blue.500"
                       href="/auth/forgot-password"
                       _hover={{ textDecoration: 'underline' }}
                     >
                       忘记密码？
-                    </Link>
+                    </Link> */}
                   </Flex>
 
                   <Button
@@ -353,7 +353,7 @@ export default function LoginPage() {
               </Stack>
             </form>
 
-            <Text align="center">
+            {/* <Text align="center">
               还没有账号？{' '}
               <Link
                 color="blue.500"
@@ -362,7 +362,7 @@ export default function LoginPage() {
               >
                 立即注册
               </Link>
-            </Text>
+            </Text> */}
           </Stack>
         </MotionBox>
       </Flex>

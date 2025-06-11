@@ -164,8 +164,8 @@ const TopNav = React.memo(({
               </HStack>
             </MenuButton>
             <MenuList>
-              <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
-              <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem>
+              {/* <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
+              <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem> */}
               <Divider />
               <ChakraMenuItem 
                 icon={<FiLogOut />} 
