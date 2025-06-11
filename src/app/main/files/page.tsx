@@ -137,6 +137,8 @@ export default function FileListPage() {
     checkbox: 50,
     filename: 200,
     size: 100,
+    bucket: 160,
+    storagePath: 200,
     storageType: 120,
     createdAt: 160,
     actions: 100,
@@ -493,6 +495,12 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
+                      <Th className="resizable-column" width={`${columnWidths.bucket}px`} onMouseDown={(e) => handleColumnResize('bucket', e.nativeEvent)}>
+                        Bucket
+                      </Th>
+                      <Th className="resizable-column" width={`${columnWidths.storagePath}px`} onMouseDown={(e) => handleColumnResize('storagePath', e.nativeEvent)}>
+                        存储路径
+                      </Th>
                       <Th cursor="pointer" className="resizable-column" width={`${columnWidths.size}px`} onMouseDown={(e) => handleColumnResize('size', e.nativeEvent)} onClick={() => handleSort('file_size')}>
                         <Flex align="center">
                           大小
@@ -501,14 +509,14 @@ export default function FileListPage() {
                           )}
                         </Flex>
                       </Th>
-                      <Th cursor="pointer" className="resizable-column" width={`${columnWidths.storageType}px`} onMouseDown={(e) => handleColumnResize('storageType', e.nativeEvent)} onClick={() => handleSort('storage_type')}>
+                      {/* <Th cursor="pointer" className="resizable-column" width={`${columnWidths.storageType}px`} onMouseDown={(e) => handleColumnResize('storageType', e.nativeEvent)} onClick={() => handleSort('storage_type')}>
                         <Flex align="center">
                           存储类型
                           {sortConfig.key === 'storage_type' && (
                             <Text ml={1} fontSize="xs">{sortConfig.direction === 'asc' ? '↑' : '↓'}</Text>
                           )}
                         </Flex>
-                      </Th>
+                      </Th> */}
                       <Th cursor="pointer" className="resizable-column" width={`${columnWidths.createdAt}px`} onMouseDown={(e) => handleColumnResize('createdAt', e.nativeEvent)} onClick={() => handleSort('created_at')}>
                         <Flex align="center">
                           上传时间
@@ -523,53 +531,73 @@ export default function FileListPage() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {currentPageFiles.map((file) => (
-                      <Tr key={file.id}>
-                        <Td px={2} className="resizable-column" width={`${columnWidths.checkbox}px`}>
-                          <Checkbox
-                            isChecked={selectedFiles.includes(file.id)}
-                            onChange={() => toggleFileSelection(file.id)}
-                          />
-                        </Td>
-                        <Td className="resizable-column" width={`${columnWidths.filename}px`}>
-                          {file.original_filename}
-                        </Td>
-                        <Td className="resizable-column" width={`${columnWidths.size}px`}>
-                          {formatFileSize(file.file_size)}
-                        </Td>
-                        <Td className="resizable-column" width={`${columnWidths.storageType}px`}>
-                          <Badge colorScheme={
-                            file.storage_type === 'ALIYUN_OSS' ? 'orange' :
-                            file.storage_type === 'AWS_S3' ? 'blue' :
-                            file.storage_type === 'CLOUDFLARE_R2' ? 'purple' : 'gray'
-                          }>
-                            {file.storage_type}
-                          </Badge>
-                        </Td>
-                        <Td className="resizable-column" width={`${columnWidths.createdAt}px`}>
-                          {formatDate(file.created_at)}
-                        </Td>
-                        <Td className="resizable-column" width={`${columnWidths.actions}px`}>
-                          <HStack spacing={2}>
-                            <IconButton
-                              aria-label="下载文件"
-                              icon={<FiDownload />}
-                              size="sm"
-                              onClick={() => handleDownload(file.id)}
+                    {currentPageFiles.map((file) => {
+                      // 提取存储路径（file_name 前两个 / 的内容）
+                      let storagePath = '';
+                      if (file.filename) {
+                        const parts = file.filename.split('/');
+                        if (parts.length >= 2) {
+                          storagePath = parts.slice(0, 2).join('/');
+                        } else if (parts.length === 1 && file.filename.includes('/')) {
+                          storagePath = parts[0];
+                        } else {
+                          storagePath = '';
+                        }
+                      }
+                      return (
+                        <Tr key={file.id}>
+                          <Td px={2} className="resizable-column" width={`${columnWidths.checkbox}px`}>
+                            <Checkbox
+                              isChecked={selectedFiles.includes(file.id)}
+                              onChange={() => toggleFileSelection(file.id)}
                             />
-                            {canDeleteFile && (
+                          </Td>
+                          <Td className="resizable-column" width={`${columnWidths.filename}px`}>
+                            {file.original_filename}
+                          </Td>
+                          <Td className="resizable-column" width={`${columnWidths.bucket}px`}>
+                            {file.bucket}
+                          </Td>
+                          <Td className="resizable-column" width={`${columnWidths.storagePath}px`}>
+                            {storagePath}
+                          </Td>
+                          <Td className="resizable-column" width={`${columnWidths.size}px`}>
+                            {formatFileSize(file.file_size)}
+                          </Td>
+                          {/* <Td className="resizable-column" width={`${columnWidths.storageType}px`}>
+                            <Badge colorScheme={
+                              file.storage_type === 'ALIYUN_OSS' ? 'orange' :
+                              file.storage_type === 'AWS_S3' ? 'blue' :
+                              file.storage_type === 'CLOUDFLARE_R2' ? 'purple' : 'gray'
+                            }>
+                              {file.storage_type}
+                            </Badge>
+                          </Td> */}
+                          <Td className="resizable-column" width={`${columnWidths.createdAt}px`}>
+                            {formatDate(file.created_at)}
+                          </Td>
+                          <Td className="resizable-column" width={`${columnWidths.actions}px`}>
+                            <HStack spacing={2}>
                               <IconButton
-                                aria-label="删除文件"
-                                icon={<FiTrash2 />}
+                                aria-label="下载文件"
+                                icon={<FiDownload />}
                                 size="sm"
-                                colorScheme="red"
-                                onClick={() => confirmDelete(file.id)}
+                                onClick={() => handleDownload(file.id)}
                               />
-                            )}
-                          </HStack>
-                        </Td>
-                      </Tr>
-                    ))}
+                              {canDeleteFile && (
+                                <IconButton
+                                  aria-label="删除文件"
+                                  icon={<FiTrash2 />}
+                                  size="sm"
+                                  colorScheme="red"
+                                  onClick={() => confirmDelete(file.id)}
+                                />
+                              )}
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      );
+                    })}
                   </Tbody>
                 </Table>
                 
