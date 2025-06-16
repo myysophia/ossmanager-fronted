@@ -23,9 +23,10 @@ import {
 import { SearchIcon, AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { PermissionAPI } from '@/lib/api/client';
 import { Permission } from '@/lib/api/types';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import PermissionForm from './PermissionForm';
 
-export default function PermissionsPage() {
+function PermissionsPageContent() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -197,5 +198,13 @@ export default function PermissionsPage() {
         onSuccess={fetchPermissions}
       />
     </Box>
+  );
+}
+
+export default function PermissionsPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <PermissionsPageContent />
+    </ProtectedRoute>
   );
 } 

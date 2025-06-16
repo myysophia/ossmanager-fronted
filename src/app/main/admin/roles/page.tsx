@@ -23,11 +23,12 @@ import {
 import { SearchIcon, AddIcon, EditIcon, DeleteIcon, SettingsIcon, LockIcon } from '@chakra-ui/icons';
 import { RoleAPI } from '@/lib/api/client';
 import { Role } from '@/lib/api/types';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import RoleForm from './RoleForm';
 import RegionBucketAccessForm from './RegionBucketAccessForm';
 import RolePermissionForm from './RolePermissionForm';
 
-export default function RolesPage() {
+function RolesPageContent() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -251,5 +252,13 @@ export default function RolesPage() {
         </>
       )}
     </Box>
+  );
+}
+
+export default function RolesPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <RolesPageContent />
+    </ProtectedRoute>
   );
 } 

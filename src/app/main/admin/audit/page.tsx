@@ -22,6 +22,7 @@ import {
 } from '@chakra-ui/react';
 import { FiSearch, FiCalendar } from 'react-icons/fi';
 import apiClient from '@/lib/api/axios';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { debug } from 'console';
 
 interface AuditLog {
@@ -57,7 +58,7 @@ function toRFC3339(local: string): string | undefined {
   return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}${sign}${offsetHH}:${offsetMM}`;
 }
 
-export default function AuditLogPage() {
+function AuditLogPageContent() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
@@ -225,5 +226,13 @@ export default function AuditLogPage() {
         )}
       </Box>
     </Container>
+  );
+}
+
+export default function AuditLogPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <AuditLogPageContent />
+    </ProtectedRoute>
   );
 } 
