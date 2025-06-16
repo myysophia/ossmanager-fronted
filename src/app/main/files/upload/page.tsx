@@ -23,6 +23,8 @@ import {
   List,
   ListItem,
   IconButton,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api';
@@ -37,6 +39,128 @@ interface UploadFile {
   result?: any;
 }
 
+// 安全配置
+const SECURITY_CONFIG = {
+  // 允许的文件类型 (MIME types)
+  allowedMimeTypes: [
+    // 图片
+    'image/jpeg',
+    'image/png', 
+    'image/gif',
+    'image/webp',
+    // 文档
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    // 文本
+    'text/plain',
+    'text/csv',
+    // 压缩文件
+    'application/zip',
+    'application/x-rar-compressed',
+    'application/x-tar',
+    'application/gzip',
+  ],
+  
+  // 允许的文件扩展名
+  allowedExtensions: [
+    '.jpg', '.jpeg', '.png', '.gif', '.webp',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.txt', '.csv',
+    '.zip', '.rar', '.tar', '.gz'
+  ],
+  
+  // 最大文件大小 (100MB)
+  maxFileSize: 500 * 1024 * 1024,
+  
+  // 最大文件数量
+  maxFileCount: 20,
+  
+  // 危险的文件扩展名黑名单
+  dangerousExtensions: [
+    '.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js', '.jar',
+    '.sh', '.php', '.asp', '.aspx', '.jsp', '.pl', '.py', '.rb'
+  ]
+};
+
+// 文件安全验证函数
+function validateFile(file: File): { isValid: boolean; error?: string } {
+  // 检查文件大小
+  if (file.size > SECURITY_CONFIG.maxFileSize) {
+    return { 
+      isValid: false, 
+      error: `文件大小超过限制 (${(SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0)}MB)` 
+    };
+  }
+  
+  // 检查文件类型
+  if (!SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
+    return { 
+      isValid: false, 
+      error: `不支持的文件类型: ${file.type}` 
+    };
+  }
+  
+  // 检查文件扩展名
+  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+  if (!SECURITY_CONFIG.allowedExtensions.includes(extension)) {
+    return { 
+      isValid: false, 
+      error: `不支持的文件扩展名: ${extension}` 
+    };
+  }
+  
+  // 检查危险文件扩展名
+  if (SECURITY_CONFIG.dangerousExtensions.includes(extension)) {
+    return { 
+      isValid: false, 
+      error: `危险的文件类型，不允许上传: ${extension}` 
+    };
+  }
+  
+  // 检查文件名安全性
+  const fileName = file.name;
+  
+  // 检查文件名长度
+  if (fileName.length > 255) {
+    return { 
+      isValid: false, 
+      error: '文件名过长 (最大255字符)' 
+    };
+  }
+  
+  // 检查危险字符
+  const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
+  if (dangerousChars.test(fileName)) {
+    return { 
+      isValid: false, 
+      error: '文件名包含非法字符' 
+    };
+  }
+  
+  // 检查是否以点开头 (隐藏文件)
+  if (fileName.startsWith('.')) {
+    return { 
+      isValid: false, 
+      error: '不允许上传隐藏文件' 
+    };
+  }
+  
+  return { isValid: true };
+}
+
+// 清理文件名
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // 替换危险字符
+    .replace(/^\.+/, '') // 移除开头的点
+    .substring(0, 255); // 限制长度
+}
+
 export default function UploadPage() {
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -44,6 +168,7 @@ export default function UploadPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [buckets, setBuckets] = useState<BucketAccess[]>([]);
   const [selectedBucketId, setSelectedBucketId] = useState<number | null>(null);
+  const [bucketsLoading, setBucketsLoading] = useState(true);
   const toast = useToast();
 
   useEffect(() => {
@@ -62,29 +187,109 @@ export default function UploadPage() {
           duration: 3000,
           isClosable: true,
         });
+      } finally {
+        setBucketsLoading(false);
       }
     };
     fetchUserBuckets();
   }, [toast]);
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const newFiles = acceptedFiles.map(file => ({
-      id: Math.random().toString(36).substring(2, 9),
-      file,
-      progress: 0,
-      status: 'ready' as const,
-    }));
-    setFiles(prev => [...prev, ...newFiles]);
-  }, []);
+  const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
+    // 处理被拒绝的文件
+    rejectedFiles.forEach(({ file, errors }) => {
+      errors.forEach((error: any) => {
+        toast({
+          title: `文件 ${file.name} 被拒绝`,
+          description: error.message,
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      });
+    });
+
+    // 检查文件数量限制
+    const totalFiles = files.length + acceptedFiles.length;
+    if (totalFiles > SECURITY_CONFIG.maxFileCount) {
+      toast({
+        title: '文件数量超过限制',
+        description: `最多只能上传 ${SECURITY_CONFIG.maxFileCount} 个文件`,
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    // 验证每个文件
+    const validFiles: File[] = [];
+    const invalidFiles: string[] = [];
+
+    acceptedFiles.forEach(file => {
+      const validation = validateFile(file);
+      if (validation.isValid) {
+        validFiles.push(file);
+      } else {
+        invalidFiles.push(`${file.name}: ${validation.error}`);
+      }
+    });
+
+    // 显示无效文件错误
+    if (invalidFiles.length > 0) {
+      toast({
+        title: '部分文件验证失败',
+        description: invalidFiles.join('\n'),
+        status: 'error',
+        duration: 8000,
+        isClosable: true,
+      });
+    }
+
+    // 添加有效文件
+    if (validFiles.length > 0) {
+      const newFiles = validFiles.map(file => ({
+        id: Math.random().toString(36).substring(2, 9),
+        file: new File([file], sanitizeFileName(file.name), { type: file.type }),
+        progress: 0,
+        status: 'ready' as const,
+      }));
+      setFiles(prev => [...prev, ...newFiles]);
+    }
+  }, [files.length, toast]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
+      'application/pdf': ['.pdf'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-excel': ['.xls'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'text/plain': ['.txt'],
+      'text/csv': ['.csv'],
+      'application/zip': ['.zip'],
+    },
+    maxSize: SECURITY_CONFIG.maxFileSize,
+    maxFiles: SECURITY_CONFIG.maxFileCount,
   });
 
   const addTag = () => {
     if (tag && !tags.includes(tag)) {
-      setTags([...tags, tag]);
-      setTag('');
+      // 验证标签内容
+      const sanitizedTag = tag.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '');
+      if (sanitizedTag && sanitizedTag.length <= 50) {
+        setTags([...tags, sanitizedTag]);
+        setTag('');
+      } else {
+        toast({
+          title: '无效的标签',
+          description: '标签不能包含特殊字符且长度不能超过50字符',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     }
   };
 
@@ -106,6 +311,7 @@ export default function UploadPage() {
       });
       return;
     }
+    
     const selectedBucket = buckets.find(b => b.id === selectedBucketId);
     if (!selectedBucket) {
       toast({
@@ -116,16 +322,26 @@ export default function UploadPage() {
       });
       return;
     }
+    
     setUploading(true);
     const uploadPromises = files.map(async (file) => {
       if (file.status !== 'ready') return;
+      
       try {
         setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 10, status: 'uploading' } : f));
+        
+        // 再次验证文件（防止客户端绕过）
+        const validation = validateFile(file.file);
+        if (!validation.isValid) {
+          throw new Error(validation.error);
+        }
+        
         const formData = new FormData();
         formData.append('file', file.file);
         if (tags.length > 0) {
           formData.append('tags', JSON.stringify(tags));
         }
+        
         const result = await FileAPI.uploadFile(
           formData,
           {
@@ -133,15 +349,24 @@ export default function UploadPage() {
             bucketName: selectedBucket.bucket_name
           }
         );
+        
         setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 100, status: 'done', result } : f));
       } catch (error) {
-        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 0, status: 'error', error: error instanceof Error ? error.message : '上传失败' } : f));
+        setFiles(prev => prev.map(f => f.id === file.id ? { 
+          ...f, 
+          progress: 0, 
+          status: 'error', 
+          error: error instanceof Error ? error.message : '上传失败' 
+        } : f));
       }
     });
+    
     await Promise.all(uploadPromises);
     setUploading(false);
+    
     const failedFiles = files.filter(f => f.status === 'error').length;
     const successFiles = files.filter(f => f.status === 'done').length;
+    
     if (failedFiles === 0 && successFiles > 0) {
       toast({
         title: '上传完成',
@@ -173,6 +398,24 @@ export default function UploadPage() {
     <Container maxW="container.xl" py={10}>
       <VStack spacing={8} align="stretch">
         <Heading size="lg">文件上传</Heading>
+        
+        {/* 安全提示 */}
+        <Alert status="info">
+          <AlertIcon />
+          <VStack align="start" spacing={1}>
+            <Text fontWeight="bold">安全提示:</Text>
+            <Text fontSize="sm">
+              • 最大文件大小: {(SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0)}MB
+            </Text>
+            <Text fontSize="sm">
+              • 最多文件数量: {SECURITY_CONFIG.maxFileCount}个
+            </Text>
+            <Text fontSize="sm">
+              • 支持格式: 图片、PDF、Office文档、文本、压缩包
+            </Text>
+          </VStack>
+        </Alert>
+        
         <Box
           {...getRootProps()}
           borderWidth={2}
@@ -194,14 +437,21 @@ export default function UploadPage() {
               <FiUpload size={40} color="gray" />
               <Text fontSize="lg">拖放文件到此处，或点击选择文件</Text>
               <Text color="gray.500" fontSize="sm">
-                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ, calib, auth
+                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ
+              </Text>
+              <Text color="red.500" fontSize="xs">
+                禁止上传可执行文件和脚本文件
               </Text>
             </VStack>
           )}
         </Box>
-        {buckets.length > 0 && (
-          <FormControl isRequired>
-            <FormLabel>存储位置</FormLabel>
+
+        {/* 存储位置选择 */}
+        <FormControl isRequired>
+          <FormLabel>存储位置</FormLabel>
+          {bucketsLoading ? (
+            <Select placeholder="加载中..." isDisabled />
+          ) : buckets.length > 0 ? (
             <Select
               value={selectedBucketId ?? ''}
               onChange={e => setSelectedBucketId(Number(e.target.value) || null)}
@@ -213,38 +463,47 @@ export default function UploadPage() {
                 </option>
               ))}
             </Select>
-          </FormControl>
-        )}
+          ) : (
+            <Alert status="warning">
+              <AlertIcon />
+              <VStack align="start" spacing={1}>
+                <Text fontWeight="medium">暂无可用的存储位置</Text>
+                <Text fontSize="sm">
+                  请联系管理员配置存储bucket或为您分配访问权限
+                </Text>
+              </VStack>
+            </Alert>
+          )}
+        </FormControl>
+
         <FormControl>
-          <FormLabel>标签</FormLabel>
+          <FormLabel>文件标签</FormLabel>
           <HStack>
             <Input
               value={tag}
               onChange={(e) => setTag(e.target.value)}
-              placeholder="添加标签"
+              placeholder="输入标签名称"
               onKeyPress={(e) => e.key === 'Enter' && addTag()}
             />
             <IconButton
               aria-label="添加标签"
               icon={<FiPlus />}
               onClick={addTag}
+              isDisabled={!tag}
             />
           </HStack>
-          <Box mt={2}>
-            {tags.map((tag, index) => (
-              <Tag
-                key={index}
-                borderRadius="full"
-                variant="solid"
-                colorScheme="blue"
-                m={1}
-              >
-                <TagLabel>{tag}</TagLabel>
-                <TagCloseButton onClick={() => removeTag(tag)} />
-              </Tag>
-            ))}
-          </Box>
+          {tags.length > 0 && (
+            <Flex mt={2} flexWrap="wrap" gap={2}>
+              {tags.map((t, index) => (
+                <Tag key={index} size="md" colorScheme="blue">
+                  <TagLabel>{t}</TagLabel>
+                  <TagCloseButton onClick={() => removeTag(t)} />
+                </Tag>
+              ))}
+            </Flex>
+          )}
         </FormControl>
+
         {files.length > 0 && (
           <Box>
             <Heading size="md" mb={4}>
@@ -308,6 +567,7 @@ export default function UploadPage() {
             </List>
           </Box>
         )}
+
         <Button
           leftIcon={<FiUpload />}
           colorScheme="blue"

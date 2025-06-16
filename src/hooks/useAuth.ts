@@ -21,6 +21,21 @@ export const useAuth = () => {
   const router = useRouter();
 
   useEffect(() => {
+    // 首先尝试从localStorage快速获取用户信息，减少闪烁
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const cachedUser = JSON.parse(userStr);
+        if (cachedUser && cachedUser.permissions) {
+          setUser(cachedUser);
+          setLoading(false); // 立即设置为false，避免闪烁
+        }
+      } catch (error) {
+        console.error('解析本地用户数据失败:', error);
+      }
+    }
+    
+    // 然后异步验证用户信息
     checkAuth();
   }, []);
 

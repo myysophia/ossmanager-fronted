@@ -24,7 +24,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, loading, hasPermission, hasManagerPermission } = useAuth();
   const router = useRouter();
 
-  // 加载中状态
+  // 加载中状态 - 简化显示，避免闪烁
   if (loading) {
     return (
       <Box 
@@ -33,10 +33,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         alignItems="center" 
         justifyContent="center"
       >
-        <VStack spacing={4}>
-          <Spinner size="xl" color="blue.500" />
-          <Text>验证权限中...</Text>
-        </VStack>
+        <Spinner size="lg" color="blue.500" />
       </Box>
     );
   }
