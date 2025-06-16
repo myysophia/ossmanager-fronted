@@ -24,9 +24,10 @@ import {
 import { SearchIcon, AddIcon, EditIcon, DeleteIcon } from '@chakra-ui/icons';
 import { UserAPI } from '@/lib/api/client';
 import { User } from '@/lib/api/types';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import UserForm from './UserForm';
 
-export default function UsersPage() {
+function UsersPageContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -280,5 +281,13 @@ export default function UsersPage() {
         onSuccess={fetchUsers}
       />
     </Box>
+  );
+}
+
+export default function UsersPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <UsersPageContent />
+    </ProtectedRoute>
   );
 } 

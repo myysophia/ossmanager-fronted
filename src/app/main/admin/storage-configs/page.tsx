@@ -35,10 +35,11 @@ import {
 import { FiEdit2, FiTrash2, FiPlus, FiCheck, FiStar } from 'react-icons/fi';
 import { ConfigAPI } from '@/lib/api';
 import { StorageConfig, StorageConfigInput } from '@/lib/api/types';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 type StorageType = 'ALIYUN_OSS' | 'AWS_S3' | 'CLOUDFLARE_R2';
 
-export default function StorageConfigsPage() {
+function StorageConfigsPageContent() {
   const [configs, setConfigs] = useState<StorageConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConfig, setSelectedConfig] = useState<StorageConfig | null>(null);
@@ -441,5 +442,13 @@ function ConfigFormModal({
         </ModalBody>
       </ModalContent>
     </Modal>
+  );
+}
+
+export default function StorageConfigsPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <StorageConfigsPageContent />
+    </ProtectedRoute>
   );
 } 

@@ -44,8 +44,9 @@ import { FiMoreVertical, FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
 import { StorageConfigService } from '@/lib/data/storage';
 import { StorageConfig, StorageConfigInput } from '@/lib/api/types';
 import { SystemConfigService, SystemConfig } from '@/lib/data/system';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     site_name: '',
@@ -605,5 +606,13 @@ export default function SettingsPage() {
         </ModalContent>
       </Modal>
     </Box>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <SettingsPageContent />
+    </ProtectedRoute>
   );
 } 

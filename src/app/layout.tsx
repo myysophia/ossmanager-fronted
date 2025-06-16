@@ -3,9 +3,10 @@ import "./globals.css";
 import React from "react";
 import { Providers } from './providers';
 import { StagewiseToolbar } from '@stagewise/toolbar-next';
+import { ReactPlugin } from '@stagewise-plugins/react';
 
 const stagewiseConfig = {
-  plugins: []
+  plugins: [ReactPlugin]
 };
 
 export const metadata: Metadata = {
