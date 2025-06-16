@@ -62,8 +62,12 @@ const SECURITY_CONFIG = {
     // 压缩文件
     'application/zip',
     'application/x-rar-compressed',
+    'application/vnd.rar', // 标准RAR MIME类型
+    'application/x-rar', // 另一种可能的RAR MIME类型
+    'application/rar', // 简化的RAR MIME类型
     'application/x-tar',
     'application/gzip',
+    'application/x-gzip',
   ],
   
   // 允许的文件扩展名
@@ -89,37 +93,54 @@ const SECURITY_CONFIG = {
 
 // 文件安全验证函数
 function validateFile(file: File): { isValid: boolean; error?: string } {
+  // 调试信息：记录文件类型
+  console.log(`文件验证: ${file.name}, MIME类型: "${file.type}", 大小: ${file.size}`);
   // 检查文件大小
   if (file.size > SECURITY_CONFIG.maxFileSize) {
+    const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
+    const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
     return { 
       isValid: false, 
-      error: `文件大小超过限制 (${(SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0)}MB)` 
+      error: `文件太大了！当前文件 ${fileSizeMB}MB，最大允许 ${maxSizeMB}MB。建议压缩后再上传。` 
     };
   }
   
-  // 检查文件类型
-  if (!SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
-    return { 
-      isValid: false, 
-      error: `不支持的文件类型: ${file.type}` 
-    };
-  }
-  
-  // 检查文件扩展名
+  // 首先检查文件扩展名（优先使用扩展名验证，因为MIME类型可能不准确）
   const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-  if (!SECURITY_CONFIG.allowedExtensions.includes(extension)) {
-    return { 
-      isValid: false, 
-      error: `不支持的文件扩展名: ${extension}` 
-    };
-  }
   
   // 检查危险文件扩展名
   if (SECURITY_CONFIG.dangerousExtensions.includes(extension)) {
     return { 
       isValid: false, 
-      error: `危险的文件类型，不允许上传: ${extension}` 
+      error: `为了安全考虑，不允许上传 ${extension.toUpperCase()} 格式的可执行文件。` 
     };
+  }
+  
+  // 检查文件扩展名是否在允许列表中
+  if (!SECURITY_CONFIG.allowedExtensions.includes(extension)) {
+    return { 
+      isValid: false, 
+      error: `不支持 ${extension} 格式。支持的格式：JPG、PNG、PDF、Word、Excel、PowerPoint、TXT、ZIP、RAR 等。` 
+    };
+  }
+  
+  // 对于已知扩展名，检查MIME类型（但对压缩文件给予宽容处理）
+  if (file.type && 
+      file.type !== 'application/octet-stream' && 
+      file.type !== '' && 
+      !SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
+    
+    // 对于压缩文件格式，浏览器可能使用不同的MIME类型，基于扩展名进行宽容处理
+    const compressionExtensions = ['.rar', '.tar', '.gz', '.zip'];
+    if (!compressionExtensions.includes(extension)) {
+      console.log(`MIME类型验证失败: ${file.type} 不在允许列表中`);
+      return { 
+        isValid: false, 
+        error: `不支持此文件类型。检测到的格式：${file.type}。支持的格式：图片、PDF、Office文档、文本文件和压缩包。` 
+      };
+    } else {
+      console.log(`压缩文件格式 ${extension} 通过宽容验证，MIME类型: ${file.type}`);
+    }
   }
   
   // 检查文件名安全性
@@ -129,7 +150,7 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   if (fileName.length > 255) {
     return { 
       isValid: false, 
-      error: '文件名过长 (最大255字符)' 
+      error: `文件名太长了！当前 ${fileName.length} 个字符，最多允许 255 个字符。请重命名后再上传。` 
     };
   }
   
@@ -138,7 +159,7 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   if (dangerousChars.test(fileName)) {
     return { 
       isValid: false, 
-      error: '文件名包含非法字符' 
+      error: '文件名包含特殊字符，请删除 < > : " / \\ | ? * 等字符后重新上传。' 
     };
   }
   
@@ -146,7 +167,7 @@ function validateFile(file: File): { isValid: boolean; error?: string } {
   if (fileName.startsWith('.')) {
     return { 
       isValid: false, 
-      error: '不允许上传隐藏文件' 
+      error: '不能上传隐藏文件（以点开头的文件），请重命名后再试。' 
     };
   }
   
@@ -194,15 +215,31 @@ export default function UploadPage() {
     fetchUserBuckets();
   }, [toast]);
 
+  // 生成人性化的错误提示
+  const getHumanizedErrorMessage = (error: any, fileName: string): string => {
+    if (error.code === 'file-invalid-type') {
+      const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase();
+      return `不支持 ${fileExtension} 格式的文件。支持的格式包括：图片 (JPG、PNG、GIF、WebP)、文档 (PDF、Word、Excel、PowerPoint)、文本文件 (TXT、CSV) 和压缩包 (ZIP、RAR、TAR、GZ)。`;
+    }
+    if (error.code === 'file-too-large') {
+      const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
+      return `文件大小超过限制，最大允许 ${maxSizeMB}MB。`;
+    }
+    if (error.code === 'too-many-files') {
+      return `文件数量超过限制，最多只能选择 ${SECURITY_CONFIG.maxFileCount} 个文件。`;
+    }
+    return error.message || '文件上传失败，请重试。';
+  };
+
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
     // 处理被拒绝的文件
     rejectedFiles.forEach(({ file, errors }) => {
       errors.forEach((error: any) => {
         toast({
-          title: `文件 ${file.name} 被拒绝`,
-          description: error.message,
+          title: `文件 "${file.name}" 无法上传`,
+          description: getHumanizedErrorMessage(error, file.name),
           status: 'error',
-          duration: 5000,
+          duration: 8000,
           isClosable: true,
         });
       });
@@ -237,7 +274,7 @@ export default function UploadPage() {
     // 显示无效文件错误
     if (invalidFiles.length > 0) {
       toast({
-        title: '部分文件验证失败',
+        title: `${invalidFiles.length} 个文件无法上传`,
         description: invalidFiles.join('\n'),
         status: 'error',
         duration: 8000,
@@ -266,9 +303,18 @@ export default function UploadPage() {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
       'text/plain': ['.txt'],
       'text/csv': ['.csv'],
       'application/zip': ['.zip'],
+      'application/x-rar-compressed': ['.rar'],
+      'application/vnd.rar': ['.rar'],
+      'application/x-rar': ['.rar'],
+      'application/rar': ['.rar'],
+      'application/x-tar': ['.tar'],
+      'application/gzip': ['.gz'],
+      'application/x-gzip': ['.gz'],
     },
     maxSize: SECURITY_CONFIG.maxFileSize,
     maxFiles: SECURITY_CONFIG.maxFileCount,
