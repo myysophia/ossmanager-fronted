@@ -335,14 +335,15 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
            error = { message: '密码必须包含数字', type: 'error' };
          } else if (!hasSpecial) {
            error = { message: '密码必须包含特殊字符', type: 'error' };
-         } else {
-           // 检查常见密码模式
-           if (/(.)\1{2,}/.test(value)) {
-             error = { message: '密码不能包含连续重复字符', type: 'error' };
-           } else if (/123|abc|qwe|password|admin/i.test(value)) {
-             error = { message: '密码不能包含常见密码模式', type: 'error' };
-           }
-         }
+         } 
+        //  else {
+        //    // 检查常见密码模式
+        //    if (/(.)\1{2,}/.test(value)) {
+        //      error = { message: '密码不能包含连续重复字符', type: 'error' };
+        //    } else if (/123|abc|qwe|password|admin/i.test(value)) {
+        //      error = { message: '密码不能包含常见密码模式', type: 'error' };
+        //    }
+        //  }
        }
        
        setErrors(prev => error ? { ...prev, password: error } : { ...prev, password: undefined } as any);
