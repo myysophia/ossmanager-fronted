@@ -13,7 +13,6 @@ import {
   Input,
   FormControl,
   FormLabel,
-  Switch,
   Select,
   Tag,
   TagLabel,
@@ -27,8 +26,7 @@ import {
 } from '@chakra-ui/react';
 import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api';
-import { StorageConfig } from '@/lib/api/types';
-import { StorageConfigService } from '@/lib/data/storage';
+import { BucketService, BucketAccess } from '@/lib/data/bucket';
 
 interface UploadFile {
   id: string;
@@ -44,34 +42,21 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [tag, setTag] = useState('');
   const [tags, setTags] = useState<string[]>([]);
-  const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
-  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
+  const [buckets, setBuckets] = useState<BucketAccess[]>([]);
+  const [selectedBucketId, setSelectedBucketId] = useState<number | null>(null);
   const toast = useToast();
 
   useEffect(() => {
-    // 获取存储配置列表
-    const fetchStorageConfigs = async () => {
+    const fetchUserBuckets = async () => {
       try {
-        console.log('开始获取存储配置列表...');
-        const configs = await StorageConfigService.getAllStorageConfigs();
-        console.log('获取到的存储配置列表:', configs);
-        
-        setStorageConfigs(configs);
-        
-        // 如果有默认配置，则选中它
-        const defaultConfig = configs.find(config => config.is_default);
-        if (defaultConfig) {
-          console.log('选择默认存储配置:', defaultConfig);
-          setSelectedStorage(defaultConfig.id);
-        } else if (configs.length > 0) {
-          // 如果没有默认配置但有配置项，选择第一个
-          console.log('没有默认配置，选择第一个配置:', configs[0]);
-          setSelectedStorage(configs[0].id);
+        const bucketList = await BucketService.getUserBucketAccess();
+        setBuckets(bucketList);
+        if (bucketList.length > 0) {
+          setSelectedBucketId(bucketList[0].id);
         }
       } catch (error) {
-        console.error('获取存储配置失败:', error);
         toast({
-          title: '获取存储配置失败',
+          title: '获取 bucket 列表失败',
           description: error instanceof Error ? error.message : '未知错误',
           status: 'error',
           duration: 3000,
@@ -79,8 +64,7 @@ export default function UploadPage() {
         });
       }
     };
-
-    fetchStorageConfigs();
+    fetchUserBuckets();
   }, [toast]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -90,7 +74,6 @@ export default function UploadPage() {
       progress: 0,
       status: 'ready' as const,
     }));
-    
     setFiles(prev => [...prev, ...newFiles]);
   }, []);
 
@@ -123,8 +106,8 @@ export default function UploadPage() {
       });
       return;
     }
-
-    if (!selectedStorage) {
+    const selectedBucket = buckets.find(b => b.id === selectedBucketId);
+    if (!selectedBucket) {
       toast({
         title: '请选择存储位置',
         status: 'warning',
@@ -133,73 +116,32 @@ export default function UploadPage() {
       });
       return;
     }
-    
     setUploading(true);
-    
-    // 实际上传文件到后端
     const uploadPromises = files.map(async (file) => {
-      // 只上传状态为ready的文件
       if (file.status !== 'ready') return;
-      
       try {
-        // 更新状态为正在上传
-        setFiles(prev => 
-          prev.map(f => 
-            f.id === file.id 
-              ? { ...f, progress: 10, status: 'uploading' } 
-              : f
-          )
-        );
-        
-        // 创建包含文件和额外字段的表单数据
+        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 10, status: 'uploading' } : f));
         const formData = new FormData();
-        // 按照后端 API 格式设置文件
         formData.append('file', file.file);
-        
-        // 打印上传信息
-        console.log('准备上传文件:', {
-          fileName: file.file.name,
-          fileSize: file.file.size,
-          fileType: file.file.type
-        });
-        
-        // 调用后端API上传文件
-        const result = await FileAPI.uploadFile(file.file);
-        console.log(`文件 ${file.file.name} 上传成功:`, result);
-        
-        // 更新文件状态为上传完成
-        setFiles(prev => 
-          prev.map(f => 
-            f.id === file.id 
-              ? { ...f, progress: 100, status: 'done', result } 
-              : f
-          )
+        if (tags.length > 0) {
+          formData.append('tags', JSON.stringify(tags));
+        }
+        const result = await FileAPI.uploadFile(
+          formData,
+          {
+            regionCode: selectedBucket.region_code,
+            bucketName: selectedBucket.bucket_name
+          }
         );
+        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 100, status: 'done', result } : f));
       } catch (error) {
-        console.error(`文件 ${file.file.name} 上传失败:`, error);
-        setFiles(prev => 
-          prev.map(f => 
-            f.id === file.id 
-              ? { 
-                  ...f, 
-                  progress: 0, 
-                  status: 'error', 
-                  error: error instanceof Error ? error.message : '上传失败' 
-                } 
-              : f
-          )
-        );
+        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 0, status: 'error', error: error instanceof Error ? error.message : '上传失败' } : f));
       }
     });
-    
     await Promise.all(uploadPromises);
-    
     setUploading(false);
-    
-    // 检查是否有上传失败的文件
     const failedFiles = files.filter(f => f.status === 'error').length;
     const successFiles = files.filter(f => f.status === 'done').length;
-    
     if (failedFiles === 0 && successFiles > 0) {
       toast({
         title: '上传完成',
@@ -231,7 +173,6 @@ export default function UploadPage() {
     <Container maxW="container.xl" py={10}>
       <VStack spacing={8} align="stretch">
         <Heading size="lg">文件上传</Heading>
-
         <Box
           {...getRootProps()}
           borderWidth={2}
@@ -258,25 +199,22 @@ export default function UploadPage() {
             </VStack>
           )}
         </Box>
-
-        {storageConfigs.length > 0 && (
+        {buckets.length > 0 && (
           <FormControl isRequired>
             <FormLabel>存储位置</FormLabel>
             <Select
-              value={selectedStorage || ''}
-              onChange={(e) => setSelectedStorage(e.target.value || null)}
+              value={selectedBucketId ?? ''}
+              onChange={e => setSelectedBucketId(Number(e.target.value) || null)}
               placeholder="选择存储位置"
             >
-              {storageConfigs.map((config) => (
-                <option key={config.id} value={config.id}>
-                  {config.name} ({config.storage_type})
-                  {config.is_default ? ' (默认)' : ''}
+              {buckets.map(bucket => (
+                <option key={bucket.id} value={bucket.id}>
+                  {bucket.region_code} - {bucket.bucket_name}
                 </option>
               ))}
             </Select>
           </FormControl>
         )}
-
         <FormControl>
           <FormLabel>标签</FormLabel>
           <HStack>
@@ -292,7 +230,6 @@ export default function UploadPage() {
               onClick={addTag}
             />
           </HStack>
-
           <Box mt={2}>
             {tags.map((tag, index) => (
               <Tag
@@ -308,7 +245,6 @@ export default function UploadPage() {
             ))}
           </Box>
         </FormControl>
-
         {files.length > 0 && (
           <Box>
             <Heading size="md" mb={4}>
@@ -372,7 +308,6 @@ export default function UploadPage() {
             </List>
           </Box>
         )}
-
         <Button
           leftIcon={<FiUpload />}
           colorScheme="blue"
@@ -387,4 +322,4 @@ export default function UploadPage() {
       </VStack>
     </Container>
   );
-} 
+}

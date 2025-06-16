@@ -21,17 +21,40 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { FiSearch, FiCalendar } from 'react-icons/fi';
+import apiClient from '@/lib/api/axios';
+import { debug } from 'console';
 
 interface AuditLog {
-  id: string;
-  action: string;
-  module: string;
-  userId: string;
+  id: number;
+  created_at: string;
+  user_id: number;
   username: string;
-  ip: string;
-  timestamp: string;
-  status: 'success' | 'failure';
+  action: string;
+  resource_type: string;
+  resource_id: string;
   details: string;
+  ip_address: string;
+  user_agent: string;
+  status: string;
+}
+
+// RFC3339 格式化函数
+function toRFC3339(local: string): string | undefined {
+  if (!local) return undefined;
+  const date = new Date(local);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  const offset = -date.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offset);
+  const offsetHH = pad(Math.floor(absOffset / 60));
+  const offsetMM = pad(absOffset % 60);
+  return `${yyyy}-${MM}-${dd}T${hh}:${mm}:${ss}${sign}${offsetHH}:${offsetMM}`;
 }
 
 export default function AuditLogPage() {
@@ -41,98 +64,66 @@ export default function AuditLogPage() {
     from: '',
     to: '',
   });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
   const toast = useToast();
 
-  useEffect(() => {
-    // 模拟从API获取数据
-    setTimeout(() => {
-      const mockLogs: AuditLog[] = [
-        {
-          id: '1',
-          action: '用户登录',
-          module: '认证',
-          userId: 'user001',
-          username: 'admin',
-          ip: '192.168.1.1',
-          timestamp: '2023-06-15 10:35:22',
-          status: 'success',
-          details: '管理员登录成功',
-        },
-        {
-          id: '2',
-          action: '文件上传',
-          module: '存储',
-          userId: 'user001',
-          username: 'admin',
-          ip: '192.168.1.1',
-          timestamp: '2023-06-15 10:40:15',
-          status: 'success',
-          details: '上传文件: 项目计划.pdf',
-        },
-        {
-          id: '3',
-          action: '文件下载',
-          module: '存储',
-          userId: 'user002',
-          username: '张三',
-          ip: '192.168.1.5',
-          timestamp: '2023-06-15 11:20:45',
-          status: 'success',
-          details: '下载文件: 项目计划.pdf',
-        },
-        {
-          id: '4',
-          action: '修改配置',
-          module: '设置',
-          userId: 'user001',
-          username: 'admin',
-          ip: '192.168.1.1',
-          timestamp: '2023-06-15 14:05:33',
-          status: 'success',
-          details: '修改存储配置',
-        },
-        {
-          id: '5',
-          action: '用户登录',
-          module: '认证',
-          userId: 'user003',
-          username: '李四',
-          ip: '192.168.1.10',
-          timestamp: '2023-06-15 09:15:12',
-          status: 'failure',
-          details: '密码错误',
-        },
-      ];
-      setLogs(mockLogs);
-      setLoading(false);
-    }, 1000);
-  }, []);
-
-  const handleSearch = () => {
+  // 获取审计日志
+  const fetchLogs = async () => {
     setLoading(true);
-    // 模拟API搜索
-    setTimeout(() => {
-      // 这里应该是真实的API调用
-      // 只使用日期范围进行搜索
+    try {
+      const params: any = {
+        page,
+        page_size: pageSize,
+      };
+      if (dateRange.from) params.start_time = toRFC3339(dateRange.from);
+      if (dateRange.to) params.end_time = toRFC3339(dateRange.to);
+      const res = await apiClient.get('/audit/logs', { params });
+      const data = res.data;
+      if (data && data.items) {
+        setLogs(data.items);
+        setTotal(data.total || 0);
+      } else {
+        setLogs([]);
+        setTotal(0);
+        toast({ title: '获取日志失败', status: 'error', duration: 2000, isClosable: true });
+      }
+    } catch (e) {
+      setLogs([]);
+      setTotal(0);
+      toast({ title: '获取日志失败', status: 'error', duration: 2000, isClosable: true });
+    } finally {
       setLoading(false);
-      toast({
-        title: '搜索完成',
-        status: 'success',
-        duration: 2000,
-        isClosable: true,
-      });
-    }, 500);
+    }
   };
 
-  const getStatusBadge = (status: 'success' | 'failure') => {
+  useEffect(() => {
+    fetchLogs();
+    // eslint-disable-next-line
+  }, [page, pageSize, dateRange.from, dateRange.to]);
+
+  const handleSearch = () => {
+    setPage(1);
+    fetchLogs();
+    toast({
+      title: '搜索完成',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
+  const getStatusBadge = (status: string) => {
+    const isSuccess = status === '200' || status === 'success';
     return (
       <Badge
-        colorScheme={status === 'success' ? 'green' : 'red'}
+        colorScheme={isSuccess ? 'green' : 'red'}
         px={2}
         py={1}
         borderRadius="full"
       >
-        {status === 'success' ? '成功' : '失败'}
+        {isSuccess ? '成功' : '失败'}
       </Badge>
     );
   };
@@ -144,21 +135,19 @@ export default function AuditLogPage() {
         <Text color="gray.500" mb={6}>
           查看和搜索系统操作记录
         </Text>
-
-        {/* 仅保留日期范围搜索 */}
         <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={6}>
           <HStack flex={1}>
-            <Text minW="80px">日期范围:</Text>
+            <Text minW="80px">时间范围:</Text>
             <Input
-              type="date"
-              placeholder="开始日期"
+              type="datetime-local"
+              placeholder="开始时间"
               value={dateRange.from}
               onChange={(e) => setDateRange({ ...dateRange, from: e.target.value })}
             />
             <Text>至</Text>
             <Input
-              type="date"
-              placeholder="结束日期"
+              type="datetime-local"
+              placeholder="结束时间"
               value={dateRange.to}
               onChange={(e) => setDateRange({ ...dateRange, to: e.target.value })}
             />
@@ -167,8 +156,6 @@ export default function AuditLogPage() {
             </Button>
           </HStack>
         </Flex>
-
-        {/* 日志表格 */}
         {loading ? (
           <Text>加载中...</Text>
         ) : (
@@ -179,7 +166,8 @@ export default function AuditLogPage() {
                   <Th>时间</Th>
                   <Th>用户</Th>
                   <Th>操作</Th>
-                  <Th>模块</Th>
+                  <Th>资源类型</Th>
+                  <Th>资源ID</Th>
                   <Th>IP地址</Th>
                   <Th>状态</Th>
                   <Th>详情</Th>
@@ -188,17 +176,51 @@ export default function AuditLogPage() {
               <Tbody>
                 {logs.map((log) => (
                   <Tr key={log.id}>
-                    <Td>{log.timestamp}</Td>
+                    <Td>{log.created_at}</Td>
                     <Td>{log.username}</Td>
                     <Td>{log.action}</Td>
-                    <Td>{log.module}</Td>
-                    <Td>{log.ip}</Td>
+                    <Td>{log.resource_type}</Td>
+                    <Td>{log.resource_id}</Td>
+                    <Td>{log.ip_address}</Td>
                     <Td>{getStatusBadge(log.status)}</Td>
-                    <Td>{log.details}</Td>
+                    <Td>
+                      <Text maxW="300px" whiteSpace="pre-wrap" wordBreak="break-all">
+                        {log.details}
+                      </Text>
+                    </Td>
                   </Tr>
                 ))}
               </Tbody>
             </Table>
+            {/* 分页控件 */}
+            <Flex justify="space-between" align="center" mt={4}>
+              <Button
+                onClick={() => setPage(page - 1)}
+                isDisabled={page === 1}
+              >
+                上一页
+              </Button>
+              <Text>
+                第 {page} 页 / 共 {Math.ceil(total / pageSize) || 1} 页（共 {total} 条）
+              </Text>
+              <Button
+                onClick={() => setPage(page + 1)}
+                isDisabled={page * pageSize >= total}
+              >
+                下一页
+              </Button>
+              <Select
+                value={pageSize}
+                onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+                width="100px"
+                ml={4}
+              >
+                <option value={10}>10条/页</option>
+                <option value={20}>20条/页</option>
+                <option value={50}>50条/页</option>
+                <option value={100}>100条/页</option>
+              </Select>
+            </Flex>
           </Box>
         )}
       </Box>

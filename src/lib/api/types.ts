@@ -15,12 +15,14 @@ export interface PageResponse<T> {
 
 // 用户相关类型
 export interface User {
-  id: string;
+  id: number;
   username: string;
   email: string;
-  role: string;
+  real_name?: string;
+  status: boolean;
   created_at: string;
   updated_at: string;
+  roles?: Role[];
 }
 
 // 登录请求参数
@@ -45,21 +47,42 @@ export interface RegisterParams {
 
 // 角色相关类型
 export interface Role {
-  id: string;
+  id: number;
   name: string;
-  description: string;
-  permissions: string[];
+  description?: string;
+  permissions?: Permission[];
   created_at: string;
   updated_at: string;
 }
 
 // 权限相关类型
 export interface Permission {
-  id: string;
+  id: number;
   name: string;
-  description: string;
+  description?: string;
+  resource: string;
+  action: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface PermissionListResponse {
+  items: Permission[];
+  total: number;
+}
+
+export interface CreatePermissionRequest {
+  name: string;
+  description?: string;
+  resource: string;
+  action: string;
+}
+
+export interface UpdatePermissionRequest {
+  name: string;
+  description?: string;
+  resource: string;
+  action: string;
 }
 
 // OSS文件相关类型
@@ -205,4 +228,57 @@ export interface FileUploadRequest {
   file: File | FormData;
   storage_type?: string;
   tags?: string[];
+}
+
+export interface CreateUserRequest {
+  username: string;
+  password: string;
+  email: string;
+  real_name?: string;
+  role_ids?: number[];
+}
+
+export interface UpdateUserRequest {
+  email?: string;
+  real_name?: string;
+  status?: boolean;
+  role_ids?: number[];
+}
+
+export interface RoleListResponse {
+  roles: Role[];
+  total: number;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  description?: string;
+  permission_ids: number[];
+}
+
+export interface UpdateRoleRequest {
+  name: string;
+  description?: string;
+  permission_ids: number[];
+}
+
+export interface RegionBucketMapping {
+  id: number;
+  region_code: string;
+  bucket_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegionBucketMappingListResponse {
+  mappings: RegionBucketMapping[];
+  total: number;
+}
+
+export interface RoleRegionBucketAccessResponse {
+  mapping_ids: number[];
+}
+
+export interface UpdateRoleRegionBucketAccessRequest {
+  mapping_ids: number[];
 } 

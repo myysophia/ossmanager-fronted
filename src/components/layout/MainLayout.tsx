@@ -41,6 +41,8 @@ import {
   FiSun
 } from 'react-icons/fi';
 import { ColorModeToggle } from '../common/ColorModeToggle';
+import apiClient from '@/lib/api/axios';
+import { debug, log } from 'console';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -162,8 +164,8 @@ const TopNav = React.memo(({
               </HStack>
             </MenuButton>
             <MenuList>
-              <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
-              <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem>
+              {/* <ChakraMenuItem icon={<FiUser />}>个人资料</ChakraMenuItem>
+              <ChakraMenuItem icon={<FiSettings />}>设置</ChakraMenuItem> */}
               <Divider />
               <ChakraMenuItem 
                 icon={<FiLogOut />} 
@@ -310,21 +312,27 @@ const DesktopSidebar = React.memo(({
           onClick={onToggle}
         />
 
-        <VStack 
-          spacing={1} 
-          align="stretch" 
-          p={3} 
-          pt={10}
-        >
+        <VStack spacing={1} align="stretch" p={3} pt={10}>
           {items.map((item, index) => (
-            <MenuItemButton
+            <Button
               key={index}
-              item={item}
+              leftIcon={item.icon}
+              variant="ghost"
+              w="100%"
+              justifyContent="flex-start"
+              h="40px"
+              px={4}
+              borderRadius="md"
+              color={isActiveRoute(item.path) ? "blue.500" : undefined}
+              fontWeight={isActiveRoute(item.path) ? "bold" : "normal"}
               isActive={isActiveRoute(item.path)}
-              isLoading={isLoading && isActiveRoute(item.path)}
-              isCollapsed={isCollapsed}
               onClick={() => onNavigate(item.path)}
-            />
+              _hover={{ bg: "gray.100" }}
+              _active={{ bg: "gray.200" }}
+              style={{ zIndex: 1 }}
+            >
+              {item.label}
+            </Button>
           ))}
         </VStack>
       </Flex>
@@ -340,18 +348,19 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const pathname = usePathname();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [user, setUser] = useState<any>(null);
+  const [userLoading, setUserLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // 检查当前路径是否匹配菜单项路径
   const isActiveRoute = useCallback((menuPath: string) => {
-    return pathname === menuPath || pathname?.startsWith(menuPath + '/');
+    // 精确匹配
+    return pathname === menuPath;
   }, [pathname]);
 
   // 导航处理函数
   const navigateTo = useCallback((path: string) => {
     if (path === pathname) return; // 避免相同路径的重复导航
-    
     setIsLoading(true);
     try {
       router.push(path);
@@ -375,28 +384,79 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     setSidebarCollapsed(prev => !prev);
   }, []);
 
-  // 只在组件挂载时获取用户信息
+  // 只在组件挂载时获取用户信息（优先接口，兼容本地缓存）
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const userData = JSON.parse(userStr);
-        setUser(userData);
-      } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
-        router.push('/auth/login');
+    async function fetchUser() {
+      try {
+        const res = await apiClient.get('/user/current');
+        const userData = res.data;
+        if (userData && userData.permissions) {
+          const processedUserData = {
+            ...userData,
+            permissions: Array.isArray(userData.permissions) ? userData.permissions : []
+          };
+          setUser(processedUserData);
+          localStorage.setItem('user', JSON.stringify(processedUserData));
+        } else {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const cachedUser = JSON.parse(userStr);
+            setUser(cachedUser);
+          } else if (pathname !== '/auth/login' && pathname !== '/auth/register') {
+            router.push('/auth/login');
+          }
+        }
+      } catch (error) {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const cachedUser = JSON.parse(userStr);
+          setUser(cachedUser);
+        } else {
+          router.push('/auth/login');
+        }
+      } finally {
+        setUserLoading(false);
       }
-    } catch (error) {
-      console.error('[用户数据错误]:', error);
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-      router.push('/auth/login');
     }
+    fetchUser();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 判断是否有 MANAGER 权限
+  function hasManagerPermission(user: any): boolean {
+    if (!user || !user.permissions) return false;
+    return user.permissions.some((p: any) => p.resource === 'MANAGER');
+  }
+
+  // 动态过滤菜单项
+  const filteredMenuItems = MENU_ITEMS.filter(item => {
+    if (!item.permissions) return true;
+    if (item.permissions.includes('admin')) {
+      return hasManagerPermission(user);
+    }
+    return true;
+  });
 
   // 登录页或注册页不显示布局
   if (pathname === '/auth/login' || pathname === '/auth/register') {
     return <>{children}</>;
+  }
+
+  // 修复左侧栏闪烁：用户权限未加载完成前渲染固定宽度占位
+  if (userLoading) {
+    return (
+      <Box minH="100vh" display="flex">
+        <Box
+          w={{ base: 0, md: isSidebarCollapsed ? '60px' : '220px' }}
+          bg="gray.800"
+          minH="100vh"
+          transition="width 0.3s ease"
+        />
+        <Box flex={1} bg="white">
+          {/* 可选：顶部导航等 */}
+        </Box>
+      </Box>
+    );
   }
 
   return (
@@ -413,7 +473,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <MobileDrawer 
         isOpen={isOpen} 
         onClose={onClose}
-        items={MENU_ITEMS}
+        items={filteredMenuItems}
         isActiveRoute={isActiveRoute}
         isLoading={isLoading}
         onNavigate={navigateTo}
@@ -423,7 +483,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <DesktopSidebar 
         isCollapsed={isSidebarCollapsed}
         onToggle={toggleSidebar}
-        items={MENU_ITEMS}
+        items={filteredMenuItems}
         isActiveRoute={isActiveRoute}
         isLoading={isLoading}
         onNavigate={navigateTo}
