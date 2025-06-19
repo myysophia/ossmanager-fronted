@@ -42,8 +42,8 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            APP_NAME=ossmanager-fronted:
+            APP_NAME=ossmanager-fronted
             APP_VERSION=${{ steps.get_version.outputs.VERSION }}
           tags: |
-            ${{ env.ACR_REGISTRY }}/novacloud/ossmanager-fronted:latest
-            ${{ env.ACR_REGISTRY }}/novacloud/ossmanager-fronted:${{ steps.get_version.outputs.VERSION }}
+            ${{ secrets.ACR_REGISTRY }}/novacloud/ossmanager-fronted:latest
+            ${{ secrets.ACR_REGISTRY }}/novacloud/ossmanager-fronted:${{ steps.get_version.outputs.VERSION }}
