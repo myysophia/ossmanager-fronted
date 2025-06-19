@@ -2,7 +2,6 @@ name: Frontend CI ACR
 
 on:
   push:
-    branches: [ "main", "nova" ]
     tags:
       - "v*"
 
@@ -38,9 +37,9 @@ jobs:
       - name: Build & Push Frontend Image
         uses: docker/build-push-action@v5
         with:
-          context: ./src/frontend/
-          push: true
-          platforms: linux/amd64,linux/arm64
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64
           build-args: |
             APP_NAME=ossmanager-fronted
             APP_VERSION=${{ steps.get_version.outputs.VERSION }}
