@@ -36,7 +36,7 @@ import {
   ModalFooter,
   ModalCloseButton,
 } from '@chakra-ui/react';
-import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw, FiLink } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api/files';
 import { OSSFile, FileQueryParams } from '@/lib/api/types';
 import { css } from '@emotion/react';
@@ -317,6 +317,37 @@ export default function FileListPage() {
     });
   };
 
+  const handleCopyLink = async (file: OSSFile) => {
+    try {
+      // 获取OSS下载链接
+      const response = await FileAPI.getFileDownloadURL(file.id);
+      const downloadUrl = response.download_url;
+      
+      if (!downloadUrl) {
+        throw new Error('无法获取下载链接');
+      }
+      
+      // 复制到剪贴板
+      await navigator.clipboard.writeText(downloadUrl);
+      
+      toast({
+        title: '链接已复制',
+        description: 'OSS下载链接已复制到剪贴板',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '复制失败',
+        description: error instanceof Error ? error.message : '复制链接失败，请重试',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchKeyword(e.target.value);
     // 重置到第一页
@@ -583,6 +614,13 @@ export default function FileListPage() {
                                 icon={<FiDownload />}
                                 size="sm"
                                 onClick={() => handleDownload(file.id)}
+                              />
+                              <IconButton
+                                aria-label="复制链接"
+                                icon={<FiLink />}
+                                size="sm"
+                                colorScheme="blue"
+                                onClick={() => handleCopyLink(file)}
                               />
                               {canDeleteFile && (
                                 <IconButton
