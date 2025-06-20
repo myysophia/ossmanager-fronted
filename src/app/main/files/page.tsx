@@ -141,7 +141,7 @@ export default function FileListPage() {
     storagePath: 200,
     storageType: 120,
     createdAt: 160,
-    actions: 100,
+    actions: 140,
   });
 
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
@@ -563,18 +563,11 @@ export default function FileListPage() {
                   </Thead>
                   <Tbody>
                     {currentPageFiles.map((file) => {
-                      // 提取存储路径（file_name 前两个 / 的内容）
-                      let storagePath = '';
-                      if (file.filename) {
-                        const parts = file.filename.split('/');
-                        if (parts.length >= 2) {
-                          storagePath = parts.slice(0, 2).join('/');
-                        } else if (parts.length === 1 && file.filename.includes('/')) {
-                          storagePath = parts[0];
-                        } else {
-                          storagePath = '';
-                        }
-                      }
+                      // 从 object_key 提取 bucket 和存储路径
+                      const objectKeyParts = file.object_key ? file.object_key.split('/') : [];
+                      const bucket = objectKeyParts.length > 0 ? objectKeyParts[0] : file.config_name || '-';
+                      const storagePath = objectKeyParts.length > 1 ? objectKeyParts.slice(0, -1).join('/') : (file.object_key || '-');
+                      
                       return (
                         <Tr key={file.id}>
                           <Td px={2} className="resizable-column" width={`${columnWidths.checkbox}px`}>
@@ -587,7 +580,7 @@ export default function FileListPage() {
                             {file.original_filename}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.bucket}px`}>
-                            {file.bucket}
+                            {bucket}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.storagePath}px`}>
                             {storagePath}
@@ -608,7 +601,7 @@ export default function FileListPage() {
                             {formatDate(file.created_at)}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.actions}px`}>
-                            <HStack spacing={2}>
+                            <HStack spacing={2} justify="flex-start" overflow="visible">
                               <IconButton
                                 aria-label="下载文件"
                                 icon={<FiDownload />}
@@ -629,6 +622,7 @@ export default function FileListPage() {
                                   size="sm"
                                   colorScheme="red"
                                   onClick={() => confirmDelete(file.id)}
+                                  zIndex={1}
                                 />
                               )}
                             </HStack>

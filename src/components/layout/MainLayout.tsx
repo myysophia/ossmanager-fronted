@@ -319,9 +319,9 @@ const DesktopSidebar = React.memo(({
               leftIcon={item.icon}
               variant="ghost"
               w="100%"
-              justifyContent="flex-start"
+              justifyContent={isCollapsed ? "center" : "flex-start"}
               h="40px"
-              px={4}
+              px={isCollapsed ? 2 : 4}
               borderRadius="md"
               color={isActiveRoute(item.path) ? "blue.500" : undefined}
               fontWeight={isActiveRoute(item.path) ? "bold" : "normal"}
@@ -330,8 +330,9 @@ const DesktopSidebar = React.memo(({
               _hover={{ bg: "gray.100" }}
               _active={{ bg: "gray.200" }}
               style={{ zIndex: 1 }}
+              title={isCollapsed ? item.label : undefined}
             >
-              {item.label}
+              {!isCollapsed && item.label}
             </Button>
           ))}
         </VStack>
