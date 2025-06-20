@@ -25,7 +25,7 @@ import {
   Badge,
   useColorModeValue,
 } from '@chakra-ui/react';
-import { FiMoreVertical, FiDownload, FiTrash2, FiSearch } from 'react-icons/fi';
+import { FiMoreVertical, FiDownload, FiTrash2, FiSearch, FiLink } from 'react-icons/fi';
 
 interface File {
   id: string;
@@ -79,7 +79,7 @@ export default function FileListPage() {
     } catch (error) {
       toast({
         title: '获取文件列表失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : '未知错误',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -136,7 +136,7 @@ export default function FileListPage() {
     } catch (error) {
       toast({
         title: '下载失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : '未知错误',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -162,7 +162,33 @@ export default function FileListPage() {
     } catch (error) {
       toast({
         title: '删除失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : '未知错误',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleCopyLink = async (file: File) => {
+    try {
+      // 生成文件访问链接
+      const fileUrl = `${window.location.origin}/api/files/${file.id}/view`;
+      
+      // 复制到剪贴板
+      await navigator.clipboard.writeText(fileUrl);
+      
+      toast({
+        title: '链接已复制',
+        description: '文件访问链接已复制到剪贴板',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '复制失败',
+        description: error instanceof Error ? error.message : '复制链接失败',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -207,7 +233,7 @@ export default function FileListPage() {
     } catch (error) {
       toast({
         title: '批量删除失败',
-        description: error.message,
+        description: error instanceof Error ? error.message : '未知错误',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -357,6 +383,13 @@ export default function FileListPage() {
                           isDisabled={file.status !== 'completed'}
                         >
                           下载
+                        </MenuItem>
+                        <MenuItem
+                          icon={<FiLink />}
+                          onClick={() => handleCopyLink(file)}
+                          isDisabled={file.status !== 'completed'}
+                        >
+                          复制链接
                         </MenuItem>
                         <MenuItem
                           icon={<FiTrash2 />}

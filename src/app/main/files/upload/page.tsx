@@ -91,86 +91,12 @@ const SECURITY_CONFIG = {
   ]
 };
 
-// 文件安全验证函数
+// 文件安全验证函数 - 已取消验证限制
 function validateFile(file: File): { isValid: boolean; error?: string } {
   // 调试信息：记录文件类型
   console.log(`文件验证: ${file.name}, MIME类型: "${file.type}", 大小: ${file.size}`);
-  // 检查文件大小
-  if (file.size > SECURITY_CONFIG.maxFileSize) {
-    const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
-    return { 
-      isValid: false, 
-      error: `文件太大了！当前文件 ${fileSizeMB}MB，最大允许 ${maxSizeMB}MB。建议压缩后再上传。` 
-    };
-  }
   
-  // 首先检查文件扩展名（优先使用扩展名验证，因为MIME类型可能不准确）
-  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-  
-  // 检查危险文件扩展名
-  if (SECURITY_CONFIG.dangerousExtensions.includes(extension)) {
-    return { 
-      isValid: false, 
-      error: `为了安全考虑，不允许上传 ${extension.toUpperCase()} 格式的可执行文件。` 
-    };
-  }
-  
-  // 检查文件扩展名是否在允许列表中
-  if (!SECURITY_CONFIG.allowedExtensions.includes(extension)) {
-    return { 
-      isValid: false, 
-      error: `不支持 ${extension} 格式。支持的格式：JPG、PNG、PDF、Word、Excel、PowerPoint、TXT、ZIP、RAR 等。` 
-    };
-  }
-  
-  // 对于已知扩展名，检查MIME类型（但对压缩文件给予宽容处理）
-  if (file.type && 
-      file.type !== 'application/octet-stream' && 
-      file.type !== '' && 
-      !SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
-    
-    // 对于压缩文件格式，浏览器可能使用不同的MIME类型，基于扩展名进行宽容处理
-    const compressionExtensions = ['.rar', '.tar', '.gz', '.zip'];
-    if (!compressionExtensions.includes(extension)) {
-      console.log(`MIME类型验证失败: ${file.type} 不在允许列表中`);
-      return { 
-        isValid: false, 
-        error: `不支持此文件类型。检测到的格式：${file.type}。支持的格式：图片、PDF、Office文档、文本文件和压缩包。` 
-      };
-    } else {
-      console.log(`压缩文件格式 ${extension} 通过宽容验证，MIME类型: ${file.type}`);
-    }
-  }
-  
-  // 检查文件名安全性
-  const fileName = file.name;
-  
-  // 检查文件名长度
-  if (fileName.length > 255) {
-    return { 
-      isValid: false, 
-      error: `文件名太长了！当前 ${fileName.length} 个字符，最多允许 255 个字符。请重命名后再上传。` 
-    };
-  }
-  
-  // 检查危险字符
-  const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
-  if (dangerousChars.test(fileName)) {
-    return { 
-      isValid: false, 
-      error: '文件名包含特殊字符，请删除 < > : " / \\ | ? * 等字符后重新上传。' 
-    };
-  }
-  
-  // 检查是否以点开头 (隐藏文件)
-  if (fileName.startsWith('.')) {
-    return { 
-      isValid: false, 
-      error: '不能上传隐藏文件（以点开头的文件），请重命名后再试。' 
-    };
-  }
-  
+  // 取消所有验证限制，直接返回 true
   return { isValid: true };
 }
 
@@ -219,7 +145,7 @@ export default function UploadPage() {
   const getHumanizedErrorMessage = (error: any, fileName: string): string => {
     if (error.code === 'file-invalid-type') {
       const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase();
-      return `不支持 ${fileExtension} 格式的文件。支持的格式包括：图片 (JPG、PNG、GIF、WebP)、文档 (PDF、Word、Excel、PowerPoint)、文本文件 (TXT、CSV) 和压缩包 (ZIP、RAR、TAR、GZ)。`;
+      return `不支持 ${fileExtension} 格式的文件。支持的格式包括：图片 (JPG、PNG、GIF、WebP)、文档 (PDF、Word、Excel、PowerPoint)、文本文件 (TXT、CSV) 和压缩包 (ZIP、RAR、TAR、GZ)`;
     }
     if (error.code === 'file-too-large') {
       const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
@@ -232,99 +158,27 @@ export default function UploadPage() {
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // 处理被拒绝的文件
-    rejectedFiles.forEach(({ file, errors }) => {
-      errors.forEach((error: any) => {
-        toast({
-          title: `文件 "${file.name}" 无法上传`,
-          description: getHumanizedErrorMessage(error, file.name),
-          status: 'error',
-          duration: 8000,
-          isClosable: true,
-        });
-      });
-    });
-
-    // 检查文件数量限制
-    const totalFiles = files.length + acceptedFiles.length;
-    if (totalFiles > SECURITY_CONFIG.maxFileCount) {
-      toast({
-        title: '文件数量超过限制',
-        description: `最多只能上传 ${SECURITY_CONFIG.maxFileCount} 个文件`,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    // 验证每个文件
-    const validFiles: File[] = [];
-    const invalidFiles: string[] = [];
-
-    acceptedFiles.forEach(file => {
-      const validation = validateFile(file);
-      if (validation.isValid) {
-        validFiles.push(file);
-      } else {
-        invalidFiles.push(`${file.name}: ${validation.error}`);
-      }
-    });
-
-    // 显示无效文件错误
-    if (invalidFiles.length > 0) {
-      toast({
-        title: `${invalidFiles.length} 个文件无法上传`,
-        description: invalidFiles.join('\n'),
-        status: 'error',
-        duration: 8000,
-        isClosable: true,
-      });
-    }
-
-    // 添加有效文件
-    if (validFiles.length > 0) {
-      const newFiles = validFiles.map(file => ({
+    // 取消所有验证限制，直接处理所有文件
+    const allFiles = [...acceptedFiles, ...rejectedFiles.map(r => r.file)];
+    
+    // 添加所有文件，不进行任何验证
+    if (allFiles.length > 0) {
+      const newFiles = allFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
-        file: new File([file], sanitizeFileName(file.name), { type: file.type }),
+        file: file,
         progress: 0,
         status: 'ready' as const,
       }));
       setFiles(prev => [...prev, ...newFiles]);
     }
-  }, [files.length, toast]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'text/plain': ['.txt'],
-      'text/csv': ['.csv'],
-      'application/zip': ['.zip'],
-      'application/x-rar-compressed': ['.rar'],
-      'application/vnd.rar': ['.rar'],
-      'application/x-rar': ['.rar'],
-      'application/rar': ['.rar'],
-      'application/x-tar': ['.tar'],
-      'application/gzip': ['.gz'],
-      'application/x-gzip': ['.gz'],
-      'application/x-zip-compressed' : ['.zip'],
-      'application/x-7z-compressed' : ['.7z'],
-      'application/x-tar' : ['.tar'],
-      'application/x-gzip' : ['.gz'],
-      'application/x-zip-compressed' : ['.zip'],
-      'application/x-7z-compressed' : ['.7z'],
-      'application/x-tar' : ['.tar'],
-    },
-    maxSize: SECURITY_CONFIG.maxFileSize,
-    maxFiles: SECURITY_CONFIG.maxFileCount,
+    // 取消所有文件类型、大小和数量限制
+    // accept: undefined,
+    // maxSize: undefined,
+    // maxFiles: undefined,
   });
 
   const addTag = () => {
@@ -383,11 +237,7 @@ export default function UploadPage() {
       try {
         setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 10, status: 'uploading' } : f));
         
-        // 再次验证文件（防止客户端绕过）
-        const validation = validateFile(file.file);
-        if (!validation.isValid) {
-          throw new Error(validation.error);
-        }
+        // 已取消文件验证限制
         
         const formData = new FormData();
         formData.append('file', file.file);
@@ -490,7 +340,7 @@ export default function UploadPage() {
               <FiUpload size={40} color="gray" />
               <Text fontSize="lg">拖放文件到此处，或点击选择文件</Text>
               <Text color="gray.500" fontSize="sm">
-                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ
+                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ,Nova文件格式后缀(如.calib)
               </Text>
               <Text color="red.500" fontSize="xs">
                 禁止上传可执行文件和脚本文件
@@ -529,7 +379,7 @@ export default function UploadPage() {
           )}
         </FormControl>
 
-        <FormControl>
+        {/* <FormControl>
           <FormLabel>文件标签</FormLabel>
           <HStack>
             <Input
@@ -555,7 +405,7 @@ export default function UploadPage() {
               ))}
             </Flex>
           )}
-        </FormControl>
+        </FormControl> */}
 
         {files.length > 0 && (
           <Box>

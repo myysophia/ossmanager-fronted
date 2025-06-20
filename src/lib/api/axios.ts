@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://novaossmanager-api.ampaura.tech/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://pan.novaicloud.com/api/v1',
   timeout: 3600000,
   headers: {
     'Content-Type': 'application/json',
