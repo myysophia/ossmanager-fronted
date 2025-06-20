@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://pan-api.novaicloud.com/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://pan.novaicloud.com/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
