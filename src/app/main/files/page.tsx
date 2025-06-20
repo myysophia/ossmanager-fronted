@@ -527,7 +527,7 @@ export default function FileListPage() {
                         </Flex>
                       </Th>
                       <Th className="resizable-column" width={`${columnWidths.bucket}px`} onMouseDown={(e) => handleColumnResize('bucket', e.nativeEvent)}>
-                        Bucket
+                        用户名称
                       </Th>
                       <Th className="resizable-column" width={`${columnWidths.storagePath}px`} onMouseDown={(e) => handleColumnResize('storagePath', e.nativeEvent)}>
                         存储路径
