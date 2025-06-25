@@ -327,12 +327,12 @@ export default function UploadPage() {
         const { total, uploaded } = data;
 
         const now = Date.now();
-        const timeDiff = (now - lastUpdateTime) / 3000; // 秒
+        const timeDiff = (now - lastUpdateTime) / 1000; // 秒
         const bytesDiff = uploaded - lastUploadedBytes;
 
         // 计算上传速度
         let currentSpeed = 0;
-        if (timeDiff >= 0.5 && bytesDiff > 0) { // 每0.5秒更新一次速度
+        if (timeDiff >= 2 && bytesDiff > 0) { // 每0.5秒更新一次速度
           currentSpeed = bytesDiff / timeDiff;
           
           // 保留最近5个速度样本以平滑计算
@@ -459,7 +459,7 @@ export default function UploadPage() {
         // 5. 等待SSE连接建立后再开始上传（最多等待10秒）
         await new Promise((resolve, reject) => {
           const startTime = Date.now();
-          const timeout = 10000; // 10秒超时
+          const timeout = 5000; // 10秒超时
           
           if (eventSource?.readyState === EventSource.OPEN) {
             console.log('SSE连接已经是打开状态');
