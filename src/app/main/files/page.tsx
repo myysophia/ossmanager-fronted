@@ -36,7 +36,7 @@ import {
   ModalFooter,
   ModalCloseButton,
 } from '@chakra-ui/react';
-import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw } from 'react-icons/fi';
+import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw, FiLink } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api/files';
 import { OSSFile, FileQueryParams } from '@/lib/api/types';
 import { css } from '@emotion/react';
@@ -141,7 +141,7 @@ export default function FileListPage() {
     storagePath: 200,
     storageType: 120,
     createdAt: 160,
-    actions: 100,
+    actions: 140,
   });
 
   const [userPermissions, setUserPermissions] = useState<any[]>([]);
@@ -315,6 +315,37 @@ export default function FileListPage() {
       duration: 3000,
       isClosable: true,
     });
+  };
+
+  const handleCopyLink = async (file: OSSFile) => {
+    try {
+      // 获取OSS下载链接
+      const response = await FileAPI.getFileDownloadURL(file.id);
+      const downloadUrl = response.download_url;
+      
+      if (!downloadUrl) {
+        throw new Error('无法获取下载链接');
+      }
+      
+      // 复制到剪贴板
+      await navigator.clipboard.writeText(downloadUrl);
+      
+      toast({
+        title: '链接已复制',
+        description: 'OSS下载链接已复制到剪贴板',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: '复制失败',
+        description: error instanceof Error ? error.message : '复制链接失败，请重试',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
   };
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -496,7 +527,7 @@ export default function FileListPage() {
                         </Flex>
                       </Th>
                       <Th className="resizable-column" width={`${columnWidths.bucket}px`} onMouseDown={(e) => handleColumnResize('bucket', e.nativeEvent)}>
-                        Bucket
+                        用户名称
                       </Th>
                       <Th className="resizable-column" width={`${columnWidths.storagePath}px`} onMouseDown={(e) => handleColumnResize('storagePath', e.nativeEvent)}>
                         存储路径
@@ -532,18 +563,11 @@ export default function FileListPage() {
                   </Thead>
                   <Tbody>
                     {currentPageFiles.map((file) => {
-                      // 提取存储路径（file_name 前两个 / 的内容）
-                      let storagePath = '';
-                      if (file.filename) {
-                        const parts = file.filename.split('/');
-                        if (parts.length >= 2) {
-                          storagePath = parts.slice(0, 2).join('/');
-                        } else if (parts.length === 1 && file.filename.includes('/')) {
-                          storagePath = parts[0];
-                        } else {
-                          storagePath = '';
-                        }
-                      }
+                      // 从 object_key 提取 bucket 和存储路径
+                      const objectKeyParts = file.object_key ? file.object_key.split('/') : [];
+                      const bucket = objectKeyParts.length > 0 ? objectKeyParts[0] : file.config_name || '-';
+                      const storagePath = objectKeyParts.length > 1 ? objectKeyParts.slice(0, -1).join('/') : (file.object_key || '-');
+                      
                       return (
                         <Tr key={file.id}>
                           <Td px={2} className="resizable-column" width={`${columnWidths.checkbox}px`}>
@@ -556,7 +580,7 @@ export default function FileListPage() {
                             {file.original_filename}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.bucket}px`}>
-                            {file.bucket}
+                            {bucket}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.storagePath}px`}>
                             {storagePath}
@@ -577,12 +601,19 @@ export default function FileListPage() {
                             {formatDate(file.created_at)}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.actions}px`}>
-                            <HStack spacing={2}>
+                            <HStack spacing={2} justify="flex-start" overflow="visible">
                               <IconButton
                                 aria-label="下载文件"
                                 icon={<FiDownload />}
                                 size="sm"
                                 onClick={() => handleDownload(file.id)}
+                              />
+                              <IconButton
+                                aria-label="复制链接"
+                                icon={<FiLink />}
+                                size="sm"
+                                colorScheme="blue"
+                                onClick={() => handleCopyLink(file)}
                               />
                               {canDeleteFile && (
                                 <IconButton
@@ -591,6 +622,7 @@ export default function FileListPage() {
                                   size="sm"
                                   colorScheme="red"
                                   onClick={() => confirmDelete(file.id)}
+                                  zIndex={1}
                                 />
                               )}
                             </HStack>

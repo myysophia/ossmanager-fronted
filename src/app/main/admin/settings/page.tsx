@@ -50,9 +50,9 @@ function SettingsPageContent() {
   const [storageConfigs, setStorageConfigs] = useState<StorageConfig[]>([]);
   const [systemConfig, setSystemConfig] = useState<SystemConfig>({
     site_name: '',
-    site_description: '',
+    description: '',
     logo_url: '',
-    max_file_size: 100,
+    max_file_size: 5120,
     allowed_file_types: [],
     default_storage_config_id: 0,
     enable_registration: false,
@@ -217,9 +217,9 @@ function SettingsPageContent() {
     }
   };
 
-  const handleDeleteConfig = async (id: number) => {
+  const handleDeleteConfig = async (id: string) => {
     try {
-      await StorageConfigService.deleteStorageConfig(id);
+      await StorageConfigService.deleteStorageConfig(Number(id));
       toast({
         title: '删除存储配置成功',
         status: 'success',
@@ -273,8 +273,8 @@ function SettingsPageContent() {
       secret_key: config.secret_key,
       bucket: config.bucket,
       region: config.region || '',
-      root_path: config.root_path || '',
-      description: config.description || ''
+      root_path: '',
+      description: ''
     });
     onOpen();
   };
@@ -331,7 +331,7 @@ function SettingsPageContent() {
                               {config.is_default ? '默认' : '正常'}
                             </Badge>
                           </Td>
-                          <Td>{config.description}</Td>
+                          <Td>-</Td>
                           <Td>
                             <Menu>
                               <MenuButton
@@ -396,11 +396,11 @@ function SettingsPageContent() {
                   <FormControl>
                     <FormLabel>站点描述</FormLabel>
                     <Input
-                      value={systemConfig.site_description}
+                      value={systemConfig.description}
                       onChange={(e) =>
                         setSystemConfig((prev) => ({
                           ...prev,
-                          site_description: e.target.value,
+                          description: e.target.value,
                         }))
                       }
                     />

@@ -29,14 +29,20 @@ import {
 import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api';
 import { BucketService, BucketAccess } from '@/lib/data/bucket';
+import apiClient from '@/lib/api/axios';
 
 interface UploadFile {
   id: string;
   file: File;
   progress: number;
-  status: 'ready' | 'uploading' | 'error' | 'done';
+  status: 'ready' | 'initializing' | 'uploading' | 'error' | 'done';
   error?: string;
   result?: any;
+  uploadedBytes?: number;
+  uploadSpeed?: number;
+  startTime?: number;
+  estimatedTimeRemaining?: number;
+  taskId?: string;
 }
 
 // 安全配置
@@ -78,8 +84,8 @@ const SECURITY_CONFIG = {
     '.zip', '.rar', '.tar', '.gz'
   ],
   
-  // 最大文件大小 (100MB)
-  maxFileSize: 500 * 1024 * 1024,
+  // 最大文件大小 (5GB)
+  maxFileSize: 5 * 1024 * 1024 * 1024,
   
   // 最大文件数量
   maxFileCount: 20,
@@ -91,86 +97,12 @@ const SECURITY_CONFIG = {
   ]
 };
 
-// 文件安全验证函数
+// 文件安全验证函数 - 已取消验证限制
 function validateFile(file: File): { isValid: boolean; error?: string } {
   // 调试信息：记录文件类型
   console.log(`文件验证: ${file.name}, MIME类型: "${file.type}", 大小: ${file.size}`);
-  // 检查文件大小
-  if (file.size > SECURITY_CONFIG.maxFileSize) {
-    const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
-    const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
-    return { 
-      isValid: false, 
-      error: `文件太大了！当前文件 ${fileSizeMB}MB，最大允许 ${maxSizeMB}MB。建议压缩后再上传。` 
-    };
-  }
   
-  // 首先检查文件扩展名（优先使用扩展名验证，因为MIME类型可能不准确）
-  const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-  
-  // 检查危险文件扩展名
-  if (SECURITY_CONFIG.dangerousExtensions.includes(extension)) {
-    return { 
-      isValid: false, 
-      error: `为了安全考虑，不允许上传 ${extension.toUpperCase()} 格式的可执行文件。` 
-    };
-  }
-  
-  // 检查文件扩展名是否在允许列表中
-  if (!SECURITY_CONFIG.allowedExtensions.includes(extension)) {
-    return { 
-      isValid: false, 
-      error: `不支持 ${extension} 格式。支持的格式：JPG、PNG、PDF、Word、Excel、PowerPoint、TXT、ZIP、RAR 等。` 
-    };
-  }
-  
-  // 对于已知扩展名，检查MIME类型（但对压缩文件给予宽容处理）
-  if (file.type && 
-      file.type !== 'application/octet-stream' && 
-      file.type !== '' && 
-      !SECURITY_CONFIG.allowedMimeTypes.includes(file.type)) {
-    
-    // 对于压缩文件格式，浏览器可能使用不同的MIME类型，基于扩展名进行宽容处理
-    const compressionExtensions = ['.rar', '.tar', '.gz', '.zip'];
-    if (!compressionExtensions.includes(extension)) {
-      console.log(`MIME类型验证失败: ${file.type} 不在允许列表中`);
-      return { 
-        isValid: false, 
-        error: `不支持此文件类型。检测到的格式：${file.type}。支持的格式：图片、PDF、Office文档、文本文件和压缩包。` 
-      };
-    } else {
-      console.log(`压缩文件格式 ${extension} 通过宽容验证，MIME类型: ${file.type}`);
-    }
-  }
-  
-  // 检查文件名安全性
-  const fileName = file.name;
-  
-  // 检查文件名长度
-  if (fileName.length > 255) {
-    return { 
-      isValid: false, 
-      error: `文件名太长了！当前 ${fileName.length} 个字符，最多允许 255 个字符。请重命名后再上传。` 
-    };
-  }
-  
-  // 检查危险字符
-  const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
-  if (dangerousChars.test(fileName)) {
-    return { 
-      isValid: false, 
-      error: '文件名包含特殊字符，请删除 < > : " / \\ | ? * 等字符后重新上传。' 
-    };
-  }
-  
-  // 检查是否以点开头 (隐藏文件)
-  if (fileName.startsWith('.')) {
-    return { 
-      isValid: false, 
-      error: '不能上传隐藏文件（以点开头的文件），请重命名后再试。' 
-    };
-  }
-  
+  // 取消所有验证限制，直接返回 true
   return { isValid: true };
 }
 
@@ -180,6 +112,32 @@ function sanitizeFileName(fileName: string): string {
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // 替换危险字符
     .replace(/^\.+/, '') // 移除开头的点
     .substring(0, 255); // 限制长度
+}
+
+// 格式化文件大小
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 格式化上传速度
+function formatUploadSpeed(bytesPerSecond: number): string {
+  if (bytesPerSecond === 0) return '0 B/s';
+  const k = 1024;
+  const sizes = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+  const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k));
+  return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 格式化剩余时间
+function formatTimeRemaining(seconds: number): string {
+  if (seconds === 0 || !isFinite(seconds)) return '--';
+  if (seconds < 60) return `${Math.ceil(seconds)}秒`;
+  if (seconds < 3600) return `${Math.ceil(seconds / 60)}分钟`;
+  return `${Math.ceil(seconds / 3600)}小时`;
 }
 
 export default function UploadPage() {
@@ -219,7 +177,7 @@ export default function UploadPage() {
   const getHumanizedErrorMessage = (error: any, fileName: string): string => {
     if (error.code === 'file-invalid-type') {
       const fileExtension = '.' + fileName.split('.').pop()?.toLowerCase();
-      return `不支持 ${fileExtension} 格式的文件。支持的格式包括：图片 (JPG、PNG、GIF、WebP)、文档 (PDF、Word、Excel、PowerPoint)、文本文件 (TXT、CSV) 和压缩包 (ZIP、RAR、TAR、GZ)。`;
+      return `不支持 ${fileExtension} 格式的文件。支持的格式包括：图片 (JPG、PNG、GIF、WebP)、文档 (PDF、Word、Excel、PowerPoint)、文本文件 (TXT、CSV) 和压缩包 (ZIP、RAR、TAR、GZ)`;
     }
     if (error.code === 'file-too-large') {
       const maxSizeMB = (SECURITY_CONFIG.maxFileSize / 1024 / 1024).toFixed(0);
@@ -232,99 +190,27 @@ export default function UploadPage() {
   };
 
   const onDrop = useCallback((acceptedFiles: File[], rejectedFiles: any[]) => {
-    // 处理被拒绝的文件
-    rejectedFiles.forEach(({ file, errors }) => {
-      errors.forEach((error: any) => {
-        toast({
-          title: `文件 "${file.name}" 无法上传`,
-          description: getHumanizedErrorMessage(error, file.name),
-          status: 'error',
-          duration: 8000,
-          isClosable: true,
-        });
-      });
-    });
-
-    // 检查文件数量限制
-    const totalFiles = files.length + acceptedFiles.length;
-    if (totalFiles > SECURITY_CONFIG.maxFileCount) {
-      toast({
-        title: '文件数量超过限制',
-        description: `最多只能上传 ${SECURITY_CONFIG.maxFileCount} 个文件`,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    // 验证每个文件
-    const validFiles: File[] = [];
-    const invalidFiles: string[] = [];
-
-    acceptedFiles.forEach(file => {
-      const validation = validateFile(file);
-      if (validation.isValid) {
-        validFiles.push(file);
-      } else {
-        invalidFiles.push(`${file.name}: ${validation.error}`);
-      }
-    });
-
-    // 显示无效文件错误
-    if (invalidFiles.length > 0) {
-      toast({
-        title: `${invalidFiles.length} 个文件无法上传`,
-        description: invalidFiles.join('\n'),
-        status: 'error',
-        duration: 8000,
-        isClosable: true,
-      });
-    }
-
-    // 添加有效文件
-    if (validFiles.length > 0) {
-      const newFiles = validFiles.map(file => ({
+    // 取消所有验证限制，直接处理所有文件
+    const allFiles = [...acceptedFiles, ...rejectedFiles.map(r => r.file)];
+    
+    // 添加所有文件，不进行任何验证
+    if (allFiles.length > 0) {
+      const newFiles = allFiles.map(file => ({
         id: Math.random().toString(36).substring(2, 9),
-        file: new File([file], sanitizeFileName(file.name), { type: file.type }),
+        file: file,
         progress: 0,
         status: 'ready' as const,
       }));
       setFiles(prev => [...prev, ...newFiles]);
     }
-  }, [files.length, toast]);
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.gif', '.webp'],
-      'application/pdf': ['.pdf'],
-      'application/msword': ['.doc'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-excel': ['.xls'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-powerpoint': ['.ppt'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-      'text/plain': ['.txt'],
-      'text/csv': ['.csv'],
-      'application/zip': ['.zip'],
-      'application/x-rar-compressed': ['.rar'],
-      'application/vnd.rar': ['.rar'],
-      'application/x-rar': ['.rar'],
-      'application/rar': ['.rar'],
-      'application/x-tar': ['.tar'],
-      'application/gzip': ['.gz'],
-      'application/x-gzip': ['.gz'],
-      'application/x-zip-compressed' : ['.zip'],
-      'application/x-7z-compressed' : ['.7z'],
-      'application/x-tar' : ['.tar'],
-      'application/x-gzip' : ['.gz'],
-      'application/x-zip-compressed' : ['.zip'],
-      'application/x-7z-compressed' : ['.7z'],
-      'application/x-tar' : ['.tar'],
-    },
-    maxSize: SECURITY_CONFIG.maxFileSize,
-    maxFiles: SECURITY_CONFIG.maxFileCount,
+    // 取消所有文件类型、大小和数量限制
+    // accept: undefined,
+    // maxSize: undefined,
+    // maxFiles: undefined,
   });
 
   const addTag = () => {
@@ -354,6 +240,167 @@ export default function UploadPage() {
     setFiles(files.filter(file => file.id !== id));
   };
 
+  // 初始化上传任务，获取task_id
+  const initUploadTask = async (fileSize: number): Promise<string> => {
+    console.log('开始初始化上传任务，文件大小:', fileSize);
+
+    try {
+      const response = await apiClient.post('/uploads/init', {
+        total: fileSize
+      });
+
+      console.log('初始化上传任务响应:', response.data);
+      
+      const apiResponse = response.data;
+      
+      // 检查响应格式
+      if (!apiResponse || typeof apiResponse !== 'object') {
+        console.error('响应格式错误:', apiResponse);
+        throw new Error('服务器返回数据格式错误');
+      }
+      
+      // 检查API响应状态
+      if (response.code !== 200) {
+        throw new Error(`初始化上传任务失败: ${apiResponse.message || '未知错误'}`);
+      }
+
+      // 检查是否有data和task_id
+      if (!response.data || !response.data.id) {
+        console.error('响应中缺少task_id:', apiResponse);
+        throw new Error('服务器返回的数据中缺少task_id');
+      }
+
+      console.log('获取到task_id:', response.data.id);
+      return response.data.id;
+    } catch (error: any) {
+      console.error('初始化上传任务失败，完整错误对象:', error);
+      console.error('错误类型:', typeof error);
+      console.error('错误名称:', error.name);
+      console.error('错误消息:', error.message);
+      console.error('错误栈:', error.stack);
+      
+      // 如果是axios错误
+      if (error.response) {
+        console.error('这是axios响应错误');
+        console.error('错误响应状态:', error.response.status);
+        console.error('错误响应数据:', error.response.data);
+        console.error('错误响应头:', error.response.headers);
+        const errorMessage = error.response.data?.message || error.response.statusText || '网络请求失败';
+        throw new Error(`初始化上传任务失败: ${error.response.status} - ${errorMessage}`);
+      }
+      // 如果是网络错误
+      if (error.request) {
+        console.error('这是网络错误');
+        console.error('错误请求:', error.request);
+        throw new Error('网络连接失败，请检查网络');
+      }
+      
+      // 其他错误
+      console.error('这是其他类型错误');
+      const errorMessage = error.message || String(error) || '完全未知错误';
+      throw new Error(`初始化上传任务失败: ${errorMessage}`);
+    }
+  };
+
+  // 创建SSE连接监听上传进度
+  const createProgressListener = (taskId: string, fileId: string, fileSize: number) => {
+    const token = localStorage.getItem('token');
+    
+    // EventSource不支持自定义headers，需要通过cookie认证
+    // 直接连接到后端，因为SSE不会经过Next.js代理
+    const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+    const sseUrl = `${baseApiUrl}/uploads/${taskId}/stream`;
+    console.log('创建SSE连接:', sseUrl);
+    console.log('直连后端，依赖cookie认证');
+    
+    const eventSource = new EventSource(sseUrl);
+
+    let lastUpdateTime = Date.now();
+    let lastUploadedBytes = 0;
+    let speedSamples: number[] = [];
+
+    eventSource.addEventListener('progress', (event) => {
+      try {
+        console.log('收到SSE进度事件:', event.data);
+        const data = JSON.parse(event.data);
+        console.log('解析后的进度数据:', data);
+        const { total, uploaded } = data;
+
+        const now = Date.now();
+        const timeDiff = (now - lastUpdateTime) / 3000; // 秒
+        const bytesDiff = uploaded - lastUploadedBytes;
+
+        // 计算上传速度
+        let currentSpeed = 0;
+        if (timeDiff >= 0.5 && bytesDiff > 0) { // 每0.5秒更新一次速度
+          currentSpeed = bytesDiff / timeDiff;
+          
+          // 保留最近5个速度样本以平滑计算
+          speedSamples.push(currentSpeed);
+          if (speedSamples.length > 5) {
+            speedSamples.shift();
+          }
+          
+          lastUpdateTime = now;
+          lastUploadedBytes = uploaded;
+        }
+
+        // 计算平均速度
+        const avgSpeed = speedSamples.length > 0 
+          ? speedSamples.reduce((sum, speed) => sum + speed, 0) / speedSamples.length 
+          : 0;
+
+        // 计算进度百分比
+        const progress = total > 0 ? (uploaded / total) * 100 : 0;
+
+        // 计算剩余时间
+        const remainingBytes = total - uploaded;
+        const estimatedTime = avgSpeed > 0 && remainingBytes > 0 ? remainingBytes / avgSpeed : 0;
+
+        console.log('进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
+
+        // 更新文件状态
+        setFiles(prev => prev.map(f => f.id === fileId ? {
+          ...f,
+          progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
+          uploadedBytes: uploaded,
+          uploadSpeed: avgSpeed,
+          estimatedTimeRemaining: estimatedTime
+        } : f));
+
+      } catch (error) {
+        console.error('解析进度数据失败:', error);
+      }
+    });
+
+    // 监听所有消息事件（包括无类型的默认消息）
+    eventSource.onmessage = (event) => {
+      console.log('收到SSE默认消息事件:', event.data);
+      try {
+        const data = JSON.parse(event.data);
+        console.log('解析默认消息数据:', data);
+      } catch (e) {
+        console.log('默认消息不是JSON格式:', event.data);
+      }
+    };
+
+    eventSource.addEventListener('open', () => {
+      console.log('SSE连接已建立');
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('SSE连接错误:', error);
+      console.error('SSE readyState:', eventSource.readyState);
+      if (eventSource.readyState === EventSource.CLOSED) {
+        console.log('SSE连接已关闭');
+      } else if (eventSource.readyState === EventSource.CONNECTING) {
+        console.log('SSE正在重连...');
+      }
+    };
+
+    return eventSource;
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast({
@@ -380,31 +427,151 @@ export default function UploadPage() {
     const uploadPromises = files.map(async (file) => {
       if (file.status !== 'ready') return;
       
+      let eventSource: EventSource | null = null;
+      
       try {
-        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 10, status: 'uploading' } : f));
+        const startTime = Date.now();
         
-        // 再次验证文件（防止客户端绕过）
-        const validation = validateFile(file.file);
-        if (!validation.isValid) {
-          throw new Error(validation.error);
-        }
+        // 1. 设置初始化状态
+        setFiles(prev => prev.map(f => f.id === file.id ? { 
+          ...f, 
+          progress: 0, 
+          status: 'initializing' as const,
+          startTime,
+          uploadedBytes: 0,
+          uploadSpeed: 0,
+          estimatedTimeRemaining: 0
+        } : f));
+
+        // 2. 初始化上传任务，获取task_id
+        const taskId = await initUploadTask(file.file.size);
         
-        const formData = new FormData();
-        formData.append('file', file.file);
-        if (tags.length > 0) {
-          formData.append('tags', JSON.stringify(tags));
-        }
-        
-        const result = await FileAPI.uploadFile(
-          formData,
-          {
-            regionCode: selectedBucket.region_code,
-            bucketName: selectedBucket.bucket_name
+        // 3. 更新为上传状态并记录taskId
+        setFiles(prev => prev.map(f => f.id === file.id ? { 
+          ...f, 
+          status: 'uploading' as const,
+          taskId
+        } : f));
+
+        // 4. 创建SSE连接监听进度
+        eventSource = createProgressListener(taskId, file.id, file.file.size);
+
+        // 5. 等待SSE连接建立后再开始上传（最多等待10秒）
+        await new Promise((resolve, reject) => {
+          const startTime = Date.now();
+          const timeout = 10000; // 10秒超时
+          
+          if (eventSource?.readyState === EventSource.OPEN) {
+            console.log('SSE连接已经是打开状态');
+            resolve(void 0);
+            return;
           }
-        );
+          
+          const checkConnection = () => {
+            console.log('检查SSE连接状态:', eventSource?.readyState);
+            
+            if (eventSource?.readyState === EventSource.OPEN) {
+              console.log('SSE连接已建立');
+              resolve(void 0);
+            } else if (Date.now() - startTime > timeout) {
+              console.error('SSE连接超时');
+              reject(new Error('SSE连接超时'));
+            } else {
+              setTimeout(checkConnection, 100);
+            }
+          };
+          
+          checkConnection();
+        });
+
+        console.log('SSE连接已就绪，开始文件上传');
+
+        // 6. 执行流式文件上传（新的API规范）
+        const result = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+
+          xhr.onload = function() {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                console.log('上传成功响应:', response);
+                resolve(response);
+              } catch (e) {
+                console.error('解析上传响应失败:', e);
+                reject(new Error('解析响应失败'));
+              }
+            } else {
+              console.error('上传失败，状态码:', xhr.status, '响应:', xhr.responseText);
+              reject(new Error(`上传失败: ${xhr.status}`));
+            }
+          };
+          
+          xhr.onerror = function() {
+            console.error('上传网络错误');
+            reject(new Error('网络错误'));
+          };
+
+          // 直接连接到后端
+          const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+          const uploadUrl = `${baseApiUrl}/oss/files`;
+          console.log('流式上传URL:', uploadUrl);
+          
+          xhr.open('POST', uploadUrl);
+          
+          // 设置流式上传所需的headers
+          const token = localStorage.getItem('token');
+          if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+          }
+          
+          // 新API规范要求的headers
+          xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+          xhr.setRequestHeader('Content-Length', file.file.size.toString());
+          xhr.setRequestHeader('X-File-Name', file.file.name);
+          xhr.setRequestHeader('region_code', selectedBucket.region_code);
+          xhr.setRequestHeader('bucket_name', selectedBucket.bucket_name);
+          
+          // Upload-Task-ID 是可选的，用于进度追踪
+          if (taskId) {
+            xhr.setRequestHeader('Upload-Task-ID', taskId);
+          }
+          
+          console.log('设置流式上传headers:', {
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': file.file.size,
+            'X-File-Name': file.file.name,
+            'region_code': selectedBucket.region_code,
+            'bucket_name': selectedBucket.bucket_name,
+            'Upload-Task-ID': taskId
+          });
+          
+          // 直接发送文件的二进制数据（不使用FormData）
+          console.log('开始发送文件二进制数据，大小:', file.file.size);
+          xhr.send(file.file);
+        });
+
+        // 8. 关闭SSE连接
+        if (eventSource) {
+          eventSource.close();
+        }
         
-        setFiles(prev => prev.map(f => f.id === file.id ? { ...f, progress: 100, status: 'done', result } : f));
+        // 9. 更新为完成状态
+        setFiles(prev => prev.map(f => f.id === file.id ? { 
+          ...f, 
+          progress: 100, 
+          status: 'done', 
+          result,
+          uploadedBytes: file.file.size,
+          uploadSpeed: 0,
+          estimatedTimeRemaining: 0
+        } : f));
+        
       } catch (error) {
+        // 确保关闭SSE连接
+        if (eventSource) {
+          eventSource.close();
+        }
+        
         setFiles(prev => prev.map(f => f.id === file.id ? { 
           ...f, 
           progress: 0, 
@@ -490,7 +657,7 @@ export default function UploadPage() {
               <FiUpload size={40} color="gray" />
               <Text fontSize="lg">拖放文件到此处，或点击选择文件</Text>
               <Text color="gray.500" fontSize="sm">
-                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ
+                支持的文件类型: 图片, PDF, Word, Excel, 文本文件, ZIP, RAR, TAR.GZ,Nova 文件格式后缀(如.calib)
               </Text>
               <Text color="red.500" fontSize="xs">
                 禁止上传可执行文件和脚本文件
@@ -529,7 +696,7 @@ export default function UploadPage() {
           )}
         </FormControl>
 
-        <FormControl>
+        {/* <FormControl>
           <FormLabel>文件标签</FormLabel>
           <HStack>
             <Input
@@ -555,7 +722,7 @@ export default function UploadPage() {
               ))}
             </Flex>
           )}
-        </FormControl>
+        </FormControl> */}
 
         {files.length > 0 && (
           <Box>
@@ -584,34 +751,65 @@ export default function UploadPage() {
                           {file.file.name}
                         </Text>
                         <Text color="gray.500" fontSize="sm">
-                          ({(file.file.size / 1024 / 1024).toFixed(2)} MB)
+                          ({formatFileSize(file.file.size)})
                         </Text>
                       </HStack>
+                      {file.status === 'initializing' && (
+                        <VStack spacing={2} width="100%">
+                          <Progress
+                            isIndeterminate
+                            size="sm"
+                            width="100%"
+                            colorScheme="orange"
+                          />
+                          <Text fontSize="xs" color="orange.600">
+                            正在初始化上传任务...
+                          </Text>
+                        </VStack>
+                      )}
                       {file.status === 'uploading' && (
-                        <Progress
-                          value={file.progress}
-                          size="sm"
-                          width="100%"
-                          colorScheme="blue"
-                        />
+                        <VStack spacing={2} width="100%">
+                          <Progress
+                            value={file.progress}
+                            size="sm"
+                            width="100%"
+                            colorScheme="blue"
+                          />
+                          <HStack justify="space-between" width="100%" fontSize="xs" color="gray.600">
+                            <Text>
+                              {file.uploadedBytes ? formatFileSize(file.uploadedBytes) : '0 B'} / {formatFileSize(file.file.size)}
+                            </Text>
+                            <Text>
+                              {file.progress.toFixed(1)}%
+                            </Text>
+                          </HStack>
+                          <HStack justify="space-between" width="100%" fontSize="xs" color="gray.600">
+                            <Text>
+                              速度: {file.uploadSpeed ? formatUploadSpeed(file.uploadSpeed) : '计算中...'}
+                            </Text>
+                            <Text>
+                              剩余: {file.estimatedTimeRemaining ? formatTimeRemaining(file.estimatedTimeRemaining) : '--'}
+                            </Text>
+                          </HStack>
+                        </VStack>
                       )}
                       {file.status === 'error' && (
                         <Text color="red.500" fontSize="sm">
                           {file.error || '上传失败'}
                         </Text>
                       )}
-                      {file.status === 'done' && file.result && (
+                      {/* {file.status === 'done' && file.result && (
                         <Text color="green.500" fontSize="sm">
                           文件ID: {file.result.id}
                         </Text>
-                      )}
+                      )} */}
                     </VStack>
                     <IconButton
                       aria-label="Remove file"
                       icon={<FiX />}
                       size="sm"
                       variant="ghost"
-                      isDisabled={uploading && file.status === 'uploading'}
+                      isDisabled={uploading && (file.status === 'initializing' || file.status === 'uploading')}
                       onClick={() => removeFile(file.id)}
                     />
                   </HStack>
