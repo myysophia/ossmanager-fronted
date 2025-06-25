@@ -23,6 +23,14 @@ export const useAuth = () => {
   useEffect(() => {
     // 首先尝试从localStorage快速获取用户信息，减少闪烁
     const userStr = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    
+    // 如果有token但没有cookie，设置cookie
+    if (token && !document.cookie.includes('token=')) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      document.cookie = `token=${token}; path=/; ${isProduction ? 'secure;' : ''} samesite=strict; max-age=86400`;
+    }
+    
     if (userStr) {
       try {
         const cachedUser = JSON.parse(userStr);
@@ -93,6 +101,8 @@ export const useAuth = () => {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
+    // 清除cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     setUser(null);
     router.push('/auth/login');
   };

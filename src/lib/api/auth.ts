@@ -40,6 +40,11 @@ export const AuthAPI = {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       
+      // 同时设置cookie以供middleware使用
+      // 设置为httpOnly=false以便JS可以访问，secure在生产环境中为true
+      const isProduction = process.env.NODE_ENV === 'production';
+      document.cookie = `token=${token}; path=/; ${isProduction ? 'secure;' : ''} samesite=strict; max-age=86400`;
+      
       return loginData;
     } catch (error: any) {
       console.error('登录失败:', error);
@@ -81,6 +86,8 @@ export const AuthAPI = {
     // 清除本地存储的token和用户信息
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    // 清除cookie
+    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   },
 
   /**
