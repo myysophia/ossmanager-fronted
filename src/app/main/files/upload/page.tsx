@@ -527,7 +527,11 @@ export default function UploadPage() {
           // 新API规范要求的headers
           xhr.setRequestHeader('Content-Type', 'application/octet-stream');
           xhr.setRequestHeader('Content-Length', file.file.size.toString());
-          xhr.setRequestHeader('X-File-Name', file.file.name);
+          
+          // 对文件名进行URL编码以支持中文字符
+          const encodedFileName = encodeURIComponent(file.file.name);
+          xhr.setRequestHeader('X-File-Name', encodedFileName);
+          
           xhr.setRequestHeader('region_code', selectedBucket.region_code);
           xhr.setRequestHeader('bucket_name', selectedBucket.bucket_name);
           
@@ -539,7 +543,8 @@ export default function UploadPage() {
           console.log('设置流式上传headers:', {
             'Content-Type': 'application/octet-stream',
             'Content-Length': file.file.size,
-            'X-File-Name': file.file.name,
+            'X-File-Name': encodedFileName,
+            'X-File-Name-Original': file.file.name,
             'region_code': selectedBucket.region_code,
             'bucket_name': selectedBucket.bucket_name,
             'Upload-Task-ID': taskId
