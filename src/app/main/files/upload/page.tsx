@@ -322,7 +322,16 @@ export default function UploadPage() {
     eventSource.addEventListener('progress', (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log('[SSE progress raw]', data);
         const { total, uploaded } = data;
+
+        if (uploaded < lastUploadedBytes) {
+          console.warn('检测到上传进度回退，忽略本次更新', {
+            previous: lastUploadedBytes,
+            current: uploaded,
+          });
+          return;
+        }
 
         const now = Date.now();
         const timeDiff = (now - lastUpdateTime) / 1000; // 秒
@@ -405,6 +414,7 @@ export default function UploadPage() {
     url: string,
     headers: Record<string, string>
   ) => {
+    console.log('streamUploadFile 开始', { url, size: file.size });
     const stream = file.stream();
 
     const response = await fetch(url, {
@@ -419,10 +429,13 @@ export default function UploadPage() {
       throw new Error(`上传失败: ${response.status}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log('streamUploadFile 完成', result);
+    return result;
   };
 
   const handleUpload = async () => {
+    console.log('开始处理上传, 文件数量:', files.length);
     if (files.length === 0) {
       toast({
         title: '请先选择文件',
@@ -532,6 +545,7 @@ export default function UploadPage() {
 
         // 8. 关闭SSE连接
         if (eventSource) {
+          console.log('关闭SSE连接');
           eventSource.close();
         }
         
@@ -547,21 +561,24 @@ export default function UploadPage() {
         } : f));
         
       } catch (error) {
+        console.error('上传过程出错:', error);
         // 确保关闭SSE连接
         if (eventSource) {
+          console.log('关闭SSE连接');
           eventSource.close();
         }
-        
-        setFiles(prev => prev.map(f => f.id === file.id ? { 
-          ...f, 
-          progress: 0, 
-          status: 'error', 
-          error: error instanceof Error ? error.message : '上传失败' 
+
+        setFiles(prev => prev.map(f => f.id === file.id ? {
+          ...f,
+          progress: 0,
+          status: 'error',
+          error: error instanceof Error ? error.message : '上传失败'
         } : f));
       }
     });
     
     await Promise.all(uploadPromises);
+    console.log('所有上传任务完成');
     setUploading(false);
     
     const failedFiles = files.filter(f => f.status === 'error').length;
