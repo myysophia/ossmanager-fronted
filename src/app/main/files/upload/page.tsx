@@ -321,9 +321,7 @@ export default function UploadPage() {
 
     eventSource.addEventListener('progress', (event) => {
       try {
-        console.log('收到SSE进度事件:', event.data);
         const data = JSON.parse(event.data);
-        console.log('解析后的进度数据:', data);
         const { total, uploaded } = data;
 
         const now = Date.now();
@@ -375,7 +373,7 @@ export default function UploadPage() {
 
     // 监听所有消息事件（包括无类型的默认消息）
     eventSource.onmessage = (event) => {
-      console.log('收到SSE默认消息事件:', event.data);
+      // console.log('收到SSE默认消息事件:', event.data);
       try {
         const data = JSON.parse(event.data);
         console.log('解析默认消息数据:', data);
@@ -551,7 +549,7 @@ export default function UploadPage() {
           });
           
           // 直接发送文件的二进制数据（不使用FormData）
-          console.log('开始发送文件二进制数据，大小:', file.file.size);
+          // console.log('开始发送文件二进制数据，大小:', file.file.size);
           xhr.send(file.file);
         });
 
