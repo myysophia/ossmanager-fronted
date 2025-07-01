@@ -399,6 +399,29 @@ export default function UploadPage() {
     return eventSource;
   };
 
+  // 通过 ReadableStream 以 chunk 方式上传文件
+  const streamUploadFile = async (
+    file: File,
+    url: string,
+    headers: Record<string, string>
+  ) => {
+    const stream = file.stream();
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: stream,
+      // Required by the Fetch spec when using a ReadableStream as the body
+      duplex: 'half',
+    });
+
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.status}`);
+    }
+
+    return response.json();
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast({
@@ -485,73 +508,27 @@ export default function UploadPage() {
         console.log('SSE连接已就绪，开始文件上传');
 
         // 6. 执行流式文件上传（新的API规范）
-        const result = await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
+        const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+        const uploadUrl = `${baseApiUrl}/oss/files`;
+        console.log('流式上传URL:', uploadUrl);
 
-          xhr.onload = function() {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                const response = JSON.parse(xhr.responseText);
-                console.log('上传成功响应:', response);
-                resolve(response);
-              } catch (e) {
-                console.error('解析上传响应失败:', e);
-                reject(new Error('解析响应失败'));
-              }
-            } else {
-              console.error('上传失败，状态码:', xhr.status, '响应:', xhr.responseText);
-              reject(new Error(`上传失败: ${xhr.status}`));
-            }
-          };
-          
-          xhr.onerror = function() {
-            console.error('上传网络错误');
-            reject(new Error('网络错误'));
-          };
+        const token = localStorage.getItem('token');
+        const encodedFileName = encodeURIComponent(file.file.name);
 
-          // 直接连接到后端
-          const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-          const uploadUrl = `${baseApiUrl}/oss/files`;
-          console.log('流式上传URL:', uploadUrl);
-          
-          xhr.open('POST', uploadUrl);
-          
-          // 设置流式上传所需的headers
-          const token = localStorage.getItem('token');
-          if (token) {
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-          }
-          
-          // 新API规范要求的headers
-          xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-          xhr.setRequestHeader('Content-Length', file.file.size.toString());
-          
-          // 对文件名进行URL编码以支持中文字符
-          const encodedFileName = encodeURIComponent(file.file.name);
-          xhr.setRequestHeader('X-File-Name', encodedFileName);
-          
-          xhr.setRequestHeader('region_code', selectedBucket.region_code);
-          xhr.setRequestHeader('bucket_name', selectedBucket.bucket_name);
-          
-          // Upload-Task-ID 是可选的，用于进度追踪
-          if (taskId) {
-            xhr.setRequestHeader('Upload-Task-ID', taskId);
-          }
-          
-          console.log('设置流式上传headers:', {
-            'Content-Type': 'application/octet-stream',
-            'Content-Length': file.file.size,
-            'X-File-Name': encodedFileName,
-            'X-File-Name-Original': file.file.name,
-            'region_code': selectedBucket.region_code,
-            'bucket_name': selectedBucket.bucket_name,
-            'Upload-Task-ID': taskId
-          });
-          
-          // 直接发送文件的二进制数据（不使用FormData）
-          // console.log('开始发送文件二进制数据，大小:', file.file.size);
-          xhr.send(file.file);
-        });
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/octet-stream',
+          'X-File-Name': encodedFileName,
+          region_code: selectedBucket.region_code,
+          bucket_name: selectedBucket.bucket_name,
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        if (taskId) headers['Upload-Task-ID'] = taskId;
+
+        const result = await streamUploadFile(
+          file.file,
+          uploadUrl,
+          headers
+        );
 
         // 8. 关闭SSE连接
         if (eventSource) {
