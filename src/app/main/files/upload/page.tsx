@@ -408,30 +408,42 @@ export default function UploadPage() {
     return eventSource;
   };
 
-  // 通过 ReadableStream 以 chunk 方式上传文件
-  const streamUploadFile = async (
+  // 通过 XMLHttpRequest 流式上传文件，避免 fetch 在部分环境下的 HTTP/2 限制
+  const streamUploadFile = (
     file: File,
     url: string,
     headers: Record<string, string>
   ) => {
     console.log('streamUploadFile 开始', { url, size: file.size });
-    const stream = file.stream();
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: stream,
-      // Required by the Fetch spec when using a ReadableStream as the body
-      duplex: 'half',
+    return new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            console.log('streamUploadFile 完成', response);
+            resolve(response);
+          } catch (e) {
+            reject(new Error('解析响应失败'));
+          }
+        } else {
+          reject(new Error(`上传失败: ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = function () {
+        reject(new Error('网络错误'));
+      };
+
+      xhr.open('POST', url);
+      Object.entries(headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+
+      xhr.send(file);
     });
-
-    if (!response.ok) {
-      throw new Error(`上传失败: ${response.status}`);
-    }
-
-    const result = await response.json();
-    console.log('streamUploadFile 完成', result);
-    return result;
   };
 
   const handleUpload = async () => {
