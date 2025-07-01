@@ -438,6 +438,7 @@ export default function UploadPage() {
       method: 'POST',
       headers,
       body: stream,
+      duplex: 'half'
     });
 
     if (!response.ok) {
