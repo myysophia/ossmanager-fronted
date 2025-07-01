@@ -438,6 +438,8 @@ export default function UploadPage() {
       method: 'POST',
       headers,
       body: stream,
+      // Required by the Fetch spec when using a ReadableStream as the body
+      duplex: 'half',
     });
 
     if (!response.ok) {
