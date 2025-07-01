@@ -408,42 +408,46 @@ export default function UploadPage() {
     return eventSource;
   };
 
-  // 通过 XMLHttpRequest 流式上传文件，避免 fetch 在部分环境下的 HTTP/2 限制
-  const streamUploadFile = (
+  // 使用 fetch + ReadableStream 进行分片上传
+  const streamUploadFile = async (
     file: File,
     url: string,
-    headers: Record<string, string>
+    headers: Record<string, string>,
+    onProgress?: (uploaded: number, total: number) => void
   ) => {
     console.log('streamUploadFile 开始', { url, size: file.size });
 
-    return new Promise<any>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
+    let uploaded = 0;
 
-      xhr.onload = function () {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const response = JSON.parse(xhr.responseText);
-            console.log('streamUploadFile 完成', response);
-            resolve(response);
-          } catch (e) {
-            reject(new Error('解析响应失败'));
-          }
-        } else {
-          reject(new Error(`上传失败: ${xhr.status}`));
-        }
-      };
+    const monitoredStream = file
+      .stream()
+      .pipeThrough(
+        new TransformStream({
+          transform(chunk, controller) {
+            uploaded += (chunk as Uint8Array).length;
+            if (onProgress) {
+              onProgress(uploaded, file.size);
+            }
+            controller.enqueue(chunk);
+          },
+        })
+      );
 
-      xhr.onerror = function () {
-        reject(new Error('网络错误'));
-      };
-
-      xhr.open('POST', url);
-      Object.entries(headers).forEach(([key, value]) => {
-        xhr.setRequestHeader(key, value);
-      });
-
-      xhr.send(file);
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: monitoredStream,
+      // required when passing a ReadableStream as body
+      duplex: 'half' as any,
     });
+
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('streamUploadFile 完成', result);
+    return result;
   };
 
   const handleUpload = async () => {
@@ -552,7 +556,15 @@ export default function UploadPage() {
         const result = await streamUploadFile(
           file.file,
           uploadUrl,
-          headers
+          headers,
+          (uploaded, total) => {
+            const progress = total > 0 ? (uploaded / total) * 100 : 0;
+            setFiles(prev => prev.map(f => f.id === file.id ? {
+              ...f,
+              progress: Math.min(progress, 99),
+              uploadedBytes: uploaded,
+            } : f));
+          }
         );
 
         // 8. 关闭SSE连接
