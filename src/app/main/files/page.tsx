@@ -152,7 +152,7 @@ export default function FileListPage() {
     // 先进行搜索过滤
     let filteredFiles = searchKeyword
       ? files.filter(file => 
-          file.original_filename.toLowerCase().includes(searchKeyword.toLowerCase())
+          decodeURIComponent(file.original_filename).toLowerCase().includes(searchKeyword.toLowerCase())
         )
       : files;
 
@@ -229,7 +229,6 @@ export default function FileListPage() {
   const handleDownload = async (fileId: number) => {
     try {
       const response = await FileAPI.getFileDownloadURL(fileId);
-      debugger
       if (response && response.download_url) {
         // 确保使用 HTTPS 链接
         let secureUrl = response.download_url;
@@ -237,27 +236,73 @@ export default function FileListPage() {
           secureUrl = secureUrl.replace('http://', 'https://');
         }
 
-        // 创建一个隐藏的 a 标签来下载
-        const link = document.createElement('a');
-        link.href = secureUrl;
-        // 从原始文件名中获取文件扩展名
+        // 获取文件信息，解码文件名
         const file = files.find(f => f.id === fileId);
-        if (file) {
-          link.download = file.original_filename; // 设置下载文件名
+        const fileName = file ? decodeURIComponent(file.original_filename) : `file_${fileId}`;
+
+        // 🎯 强制下载而不是预览：使用fetch + blob + createObjectURL
+        try {
+          // 添加缓存破坏参数，避免缓存问题
+          const downloadUrl = `${secureUrl}&download=1&t=${Date.now()}`;
+          
+          const fetchResponse = await fetch(downloadUrl, {
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache',
+            },
+          });
+
+          if (!fetchResponse.ok) {
+            throw new Error(`下载失败: ${fetchResponse.status}`);
+          }
+
+          // 获取文件内容作为blob
+          const blob = await fetchResponse.blob();
+          
+          // 创建下载链接
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName; // 设置解码后的下载文件名
+          link.style.display = 'none';
+          
+          // 添加到DOM并触发下载
+          document.body.appendChild(link);
+          link.click();
+          
+          // 清理资源
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+
+          toast({
+            title: '下载成功',
+            description: `文件 "${fileName}" 已开始下载`,
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          });
+        } catch (fetchError) {
+          console.warn('Blob下载失败，尝试直接下载:', fetchError);
+          
+          // 🔄 降级方案：如果fetch失败，尝试直接下载
+          const link = document.createElement('a');
+          link.href = secureUrl;
+          link.download = fileName;
+          link.rel = 'noopener noreferrer';
+          link.style.display = 'none';
+          
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          toast({
+            title: '文件下载中',
+            description: '如果下载没有自动开始，请检查浏览器是否阻止了弹出窗口',
+            status: 'info',
+            duration: 5000,
+            isClosable: true,
+          });
         }
-        link.rel = 'noopener noreferrer'; // 添加安全属性
-        link.target = '_blank'; // 在新标签页中打开
-        
-        // 直接在新标签页中打开链接
-        window.open(secureUrl, '_blank', 'noopener,noreferrer');
-        
-        toast({
-          title: '文件下载中',
-          description: '如果下载没有自动开始，请检查浏览器是否阻止了弹出窗口',
-          status: 'info',
-          duration: 5000,
-          isClosable: true,
-        });
       }
     } catch (error) {
       console.error('获取下载链接失败', error);
@@ -577,7 +622,7 @@ export default function FileListPage() {
                             />
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.filename}px`}>
-                            {file.original_filename}
+                            {decodeURIComponent(file.original_filename)}
                           </Td>
                           <Td className="resizable-column" width={`${columnWidths.bucket}px`}>
                             {bucket}
