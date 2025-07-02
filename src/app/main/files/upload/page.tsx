@@ -375,29 +375,48 @@ export default function UploadPage() {
 
         console.log('后端进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
 
-        // 🔄 切换到后端进度源，确保无缝接管
+        // 🔄 只有当后端有实际进度时才切换，避免0%进度接管
         setFiles(prev => prev.map(f => {
           if (f.id === fileId) {
-            // 确保后端进度不低于当前显示的进度，避免进度倒退
             const currentProgress = f.progress || 0;
-            const newProgress = Math.max(progress, currentProgress);
             
-            console.log('🔄 后端进度接管:', {
-              fileId: f.id,
-              currentProgress,
-              backendProgress: progress,
-              finalProgress: Math.min(newProgress, 99)
-            });
-            
-            return {
-              ...f,
-              progress: Math.min(newProgress, 99), // 限制在99%，等待上传完成确认
-              backendProgress: progress,
-              uploadedBytes: uploaded,
-              uploadSpeed: avgSpeed,
-              estimatedTimeRemaining: estimatedTime,
-              progressSource: 'backend' as const
-            };
+            // 🎯 关键修复：只有当后端进度 > 0 且 >= 当前进度时才切换到后端进度源
+            if (progress > 0 && progress >= currentProgress) {
+              console.log('🔄 后端进度接管:', {
+                fileId: f.id,
+                currentProgress,
+                backendProgress: progress,
+                finalProgress: Math.min(progress, 99),
+                reason: '后端有实际进度且不低于当前进度'
+              });
+              
+              return {
+                ...f,
+                progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
+                backendProgress: progress,
+                uploadedBytes: uploaded,
+                uploadSpeed: avgSpeed,
+                estimatedTimeRemaining: estimatedTime,
+                progressSource: 'backend' as const
+              };
+            } else {
+              // 只更新后端进度数据，但不切换进度源
+              console.log('📊 后端进度数据更新:', {
+                fileId: f.id,
+                currentProgress,
+                backendProgress: progress,
+                reason: progress <= 0 ? '后端进度为0，保持前端进度' : '后端进度低于当前进度，避免倒退'
+              });
+              
+              return {
+                ...f,
+                backendProgress: progress,
+                uploadedBytes: uploaded,
+                uploadSpeed: avgSpeed > 0 ? avgSpeed : f.uploadSpeed, // 保持前端速度计算
+                estimatedTimeRemaining: estimatedTime > 0 ? estimatedTime : f.estimatedTimeRemaining
+                // progressSource 保持不变
+              };
+            }
           }
           return f;
         }));
@@ -488,22 +507,29 @@ export default function UploadPage() {
             
             console.log('前端进度更新:', { progress: progress.toFixed(1), uploaded, total: file.size, avgSpeed, fileId });
             
-            // 🔧 强制更新前端进度，确保UI立即响应
+            // 🔧 强制更新前端进度，确保UI立即响应且不倒退
             setFiles(prev => {
               const updated = prev.map(f => {
                 if (f.id === fileId) {
+                  const currentProgress = f.progress || 0;
+                  const newProgress = Math.min(progress, 90); // 前端最多显示90%
+                  
                   console.log('📊 更新文件进度:', {
                     fileId: f.id,
                     currentProgressSource: f.progressSource,
-                    currentProgress: f.progress,
-                    newProgress: Math.min(progress, 90)
+                    currentProgress,
+                    calculatedProgress: progress.toFixed(1),
+                    finalProgress: Math.max(newProgress, currentProgress).toFixed(1)
                   });
                   
                   // 只有在还没切换到后端进度时才更新前端进度
                   if (f.progressSource !== 'backend') {
+                    // 🎯 关键：确保进度不倒退，取当前进度和新进度的较大值
+                    const safeProgress = Math.max(newProgress, currentProgress);
+                    
                     return {
                       ...f,
-                      progress: Math.min(progress, 90), // 前端最多显示90%
+                      progress: safeProgress, // 确保进度不倒退
                       frontendProgress: progress,
                       uploadedBytes: uploaded,
                       uploadSpeed: avgSpeed,
@@ -633,15 +659,55 @@ export default function UploadPage() {
         // 🎬 立即启动假进度动画，提升用户体验
         const startFakeProgress = () => {
           let fakeProgress = 0;
+          const startTime = Date.now();
+          const fileSize = file.file.size;
+          const fileSizeMB = fileSize / (1024 * 1024);
+          
+          // 🎯 根据文件大小智能调整假进度持续时间
+          const calculateFakeDuration = (sizeMB: number): number => {
+            if (sizeMB < 60) return 6000;      // <60MB: 6秒
+            if (sizeMB < 100) return 10000;    // 60-100MB: 10秒
+            if (sizeMB < 300) return 30000;    // 100-300MB: 30秒
+            if (sizeMB < 500) return 50000;    // 300-500MB: 50秒
+            if (sizeMB < 1000) return 80000;   // 500-1000MB: 80秒
+            return Math.min(120000, sizeMB * 100); // >1000MB: 最多120秒
+          };
+          
+          const targetDuration = calculateFakeDuration(fileSizeMB);
+          const targetProgress = 15;
+          const updateInterval = 300; // 300ms更新一次
+          const progressStep = (targetProgress / targetDuration) * updateInterval; // 每次更新的进度量
+          
+          // 模拟合理的上传速度：根据文件大小和预期时间计算
+          const estimatedSpeed = Math.max(
+            1 * 1024 * 1024,  // 最小1MB/s
+            Math.min(15 * 1024 * 1024, fileSize / (targetDuration / 1000 * 6.67)) // 基于假进度15%计算合理速度
+          );
+          
+          console.log('🎭 启动假进度:', {
+            fileSize: formatFileSize(fileSize),
+            fileSizeMB: fileSizeMB.toFixed(1) + 'MB',
+            targetDuration: `${targetDuration/1000}秒`,
+            progressStep: `${progressStep.toFixed(3)}%/次`,
+            estimatedSpeed: formatUploadSpeed(estimatedSpeed)
+          });
+          
           fakeProgressInterval = setInterval(() => {
-            fakeProgress += Math.random() * 2 + 0.5; // 随机增长0.5-2.5%
-            if (fakeProgress >= 15) { // 假进度最多到15%就停下等待真实进度
+            const elapsed = Date.now() - startTime;
+            fakeProgress += progressStep; // 匀速增长
+            
+            if (fakeProgress >= 15 || elapsed >= targetDuration) { // 假进度最多到15%或超时就停下
               if (fakeProgressInterval) {
                 clearInterval(fakeProgressInterval);
                 fakeProgressInterval = null;
               }
               return;
             }
+            
+            // 计算假进度对应的上传数据
+            const fakeUploadedBytes = Math.floor((fakeProgress / 100) * fileSize);
+            const fakeRemainingBytes = fileSize - fakeUploadedBytes;
+            const fakeETA = fakeRemainingBytes / estimatedSpeed;
             
             setFiles(prev => {
               let shouldStop = false;
@@ -653,19 +719,36 @@ export default function UploadPage() {
                     return f;
                   }
                   
-                  // 只在前端进度状态且进度小于15%时更新假进度
-                  if (f.progressSource === 'frontend' && f.progress < 15) {
+                  // 只在前端进度状态且进度小于等于假进度时更新假进度
+                  if (f.progressSource === 'frontend' && f.progress <= fakeProgress) {
                     console.log('🎭 假进度更新:', { 
                       fakeProgress: fakeProgress.toFixed(1), 
                       fileId: file.id,
-                      currentProgress: f.progress 
+                      currentProgress: f.progress,
+                      uploadedBytes: formatFileSize(fakeUploadedBytes),
+                      speed: formatUploadSpeed(estimatedSpeed),
+                      eta: formatTimeRemaining(fakeETA)
                     });
+                    
                     return {
                       ...f,
                       progress: Math.min(fakeProgress, 15),
                       frontendProgress: fakeProgress,
+                      uploadedBytes: fakeUploadedBytes,
+                      uploadSpeed: estimatedSpeed,
+                      estimatedTimeRemaining: fakeETA,
                       progressSource: 'frontend' as const
                     };
+                  } else if (f.progressSource === 'frontend' && f.progress > fakeProgress) {
+                    // 🎯 真实前端进度已经超过假进度，停止假进度
+                    console.log('🎯 真实前端进度接管:', {
+                      fileId: file.id,
+                      fakeProgress: fakeProgress.toFixed(1),
+                      realProgress: f.progress,
+                      reason: '真实进度超过假进度'
+                    });
+                    shouldStop = true;
+                    return f; // 不修改状态，保持真实进度
                   }
                 }
                 return f;
@@ -680,15 +763,20 @@ export default function UploadPage() {
               
               return updated;
             });
-          }, 300); // 每300ms更新一次假进度
+          }, updateInterval); // 每300ms更新一次假进度
           
-          // 10秒后清理假进度定时器
+          // 设置最大清理时间：假进度持续时间 + 10秒缓冲
+          const maxCleanupTime = targetDuration + 10000;
           setTimeout(() => {
             if (fakeProgressInterval) {
+              console.log('🧹 假进度超时清理:', { 
+                fileId: file.id,
+                maxTime: `${maxCleanupTime/1000}秒`
+              });
               clearInterval(fakeProgressInterval);
               fakeProgressInterval = null;
             }
-          }, 10000);
+          }, maxCleanupTime);
         };
         
         // 立即启动假进度
