@@ -339,7 +339,7 @@ export default function UploadPage() {
         // 🎯 标记已收到后端进度，停止假进度（通过全局查找）
         if (!hasReceivedBackendProgress) {
           hasReceivedBackendProgress = true;
-          console.log('🎯 后端进度开始，假进度应该自动停止');
+          // console.log('🎯 后端进度开始，假进度应该自动停止');
         }
 
         const now = Date.now();
@@ -386,16 +386,16 @@ export default function UploadPage() {
               // 🛡️ 确保上传字节数不倒退
               const safeUploadedBytes = Math.max(uploaded, currentUploadedBytes);
               
-              console.log('🔄 后端进度接管:', {
-                fileId: f.id,
-                currentProgress,
-                backendProgress: progress,
-                finalProgress: Math.min(progress, 99),
-                currentUploadedBytes: formatFileSize(currentUploadedBytes),
-                backendUploadedBytes: formatFileSize(uploaded),
-                safeUploadedBytes: formatFileSize(safeUploadedBytes),
-                reason: '后端有实际进度且不低于当前进度'
-              });
+              // console.log('🔄 后端进度接管:', {
+              //   fileId: f.id,
+              //   currentProgress,
+              //   backendProgress: progress,
+              //   finalProgress: Math.min(progress, 99),
+              //   currentUploadedBytes: formatFileSize(currentUploadedBytes),
+              //   backendUploadedBytes: formatFileSize(uploaded),
+              //   safeUploadedBytes: formatFileSize(safeUploadedBytes),
+              //   reason: '后端有实际进度且不低于当前进度'
+              // });
               
               return {
                 ...f,
@@ -408,12 +408,12 @@ export default function UploadPage() {
               };
             } else {
               // 只更新后端进度数据，但不切换进度源
-              console.log('📊 后端进度数据更新:', {
-                fileId: f.id,
-                currentProgress,
-                backendProgress: progress,
-                reason: progress <= 0 ? '后端进度为0，保持前端进度' : '后端进度低于当前进度，避免倒退'
-              });
+              // console.log('📊 后端进度数据更新:', {
+              //   fileId: f.id,
+              //   currentProgress,
+              //   backendProgress: progress,
+              //   reason: progress <= 0 ? '后端进度为0，保持前端进度' : '后端进度低于当前进度，避免倒退'
+              // });
               
               return {
                 ...f,
@@ -536,11 +536,11 @@ export default function UploadPage() {
                     
                     // 🛑 如果已经到达90%，停止更新等待后端接管
                     if (safeProgress >= 90) {
-                      console.log('⏸️ 前端进度到达90%，等待后端接管:', {
-                        fileId: f.id,
-                        progress: safeProgress,
-                        uploadedBytes: formatFileSize(f.uploadedBytes || 0)
-                      });
+                      // console.log('⏸️ 前端进度到达90%，等待后端接管:', {
+                      //   fileId: f.id,
+                      //   progress: safeProgress,
+                      //   uploadedBytes: formatFileSize(f.uploadedBytes || 0)
+                      // });
                       // 保持当前状态不变，等待后端接管
                       return f;
                     }
@@ -759,12 +759,12 @@ export default function UploadPage() {
                     };
                   } else if (f.progressSource === 'frontend' && f.progress > fakeProgress) {
                     // 🎯 真实前端进度已经超过假进度，停止假进度
-                    console.log('🎯 真实前端进度接管:', {
-                      fileId: file.id,
-                      fakeProgress: fakeProgress.toFixed(1),
-                      realProgress: f.progress,
-                      reason: '真实进度超过假进度'
-                    });
+                    // console.log('🎯 真实前端进度接管:', {
+                    //   fileId: file.id,
+                    //   fakeProgress: fakeProgress.toFixed(1),
+                    //   realProgress: f.progress,
+                    //   reason: '真实进度超过假进度'
+                    // });
                     shouldStop = true;
                     return f; // 不修改状态，保持真实进度
                   }
