@@ -382,11 +382,18 @@ export default function UploadPage() {
             
             // 🎯 关键修复：只有当后端进度 > 0 且 >= 当前进度时才切换到后端进度源
             if (progress > 0 && progress >= currentProgress) {
+              const currentUploadedBytes = f.uploadedBytes || 0;
+              // 🛡️ 确保上传字节数不倒退
+              const safeUploadedBytes = Math.max(uploaded, currentUploadedBytes);
+              
               console.log('🔄 后端进度接管:', {
                 fileId: f.id,
                 currentProgress,
                 backendProgress: progress,
                 finalProgress: Math.min(progress, 99),
+                currentUploadedBytes: formatFileSize(currentUploadedBytes),
+                backendUploadedBytes: formatFileSize(uploaded),
+                safeUploadedBytes: formatFileSize(safeUploadedBytes),
                 reason: '后端有实际进度且不低于当前进度'
               });
               
@@ -394,7 +401,7 @@ export default function UploadPage() {
                 ...f,
                 progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
                 backendProgress: progress,
-                uploadedBytes: uploaded,
+                uploadedBytes: safeUploadedBytes, // 🛡️ 防止文件大小倒退
                 uploadSpeed: avgSpeed,
                 estimatedTimeRemaining: estimatedTime,
                 progressSource: 'backend' as const
@@ -411,7 +418,7 @@ export default function UploadPage() {
               return {
                 ...f,
                 backendProgress: progress,
-                uploadedBytes: uploaded,
+                // 🛡️ 不更新 uploadedBytes，避免倒退
                 uploadSpeed: avgSpeed > 0 ? avgSpeed : f.uploadSpeed, // 保持前端速度计算
                 estimatedTimeRemaining: estimatedTime > 0 ? estimatedTime : f.estimatedTimeRemaining
                 // progressSource 保持不变
@@ -527,11 +534,22 @@ export default function UploadPage() {
                     // 🎯 关键：确保进度不倒退，取当前进度和新进度的较大值
                     const safeProgress = Math.max(newProgress, currentProgress);
                     
+                    // 🛑 如果已经到达90%，停止更新等待后端接管
+                    if (safeProgress >= 90) {
+                      console.log('⏸️ 前端进度到达90%，等待后端接管:', {
+                        fileId: f.id,
+                        progress: safeProgress,
+                        uploadedBytes: formatFileSize(f.uploadedBytes || 0)
+                      });
+                      // 保持当前状态不变，等待后端接管
+                      return f;
+                    }
+                    
                     return {
                       ...f,
                       progress: safeProgress, // 确保进度不倒退
                       frontendProgress: progress,
-                      uploadedBytes: uploaded,
+                      uploadedBytes: Math.max(uploaded, f.uploadedBytes || 0), // 🛡️ 防止文件大小倒退
                       uploadSpeed: avgSpeed,
                       estimatedTimeRemaining: eta,
                       progressSource: 'frontend' as const
@@ -675,7 +693,7 @@ export default function UploadPage() {
           
           const targetDuration = calculateFakeDuration(fileSizeMB);
           const targetProgress = 15;
-          const updateInterval = 300; // 300ms更新一次
+          const updateInterval = 2000; // 300ms更新一次
           const progressStep = (targetProgress / targetDuration) * updateInterval; // 每次更新的进度量
           
           // 模拟合理的上传速度：根据文件大小和预期时间计算
