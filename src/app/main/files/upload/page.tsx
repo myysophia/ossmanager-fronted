@@ -303,11 +303,7 @@ export default function UploadPage() {
   };
 
   // 创建SSE连接监听上传进度
-  // const createProgressListener = (taskId: string, fileId: string, fileSize: number) => {
-    const createProgressListener = (
-      taskId: string,
-      onProgress: (uploaded: number, total: number, speed: number) => void
-    ) => {
+  const createProgressListener = (taskId: string, fileId: string, fileSize: number) => {
     const token = localStorage.getItem('token');
     
     // EventSource不支持自定义headers，需要通过cookie认证
@@ -362,14 +358,13 @@ export default function UploadPage() {
         console.log('进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
 
         // 更新文件状态
-        // setFiles(prev => prev.map(f => f.id === fileId ? {
-        //   ...f,
-        //   progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
-        //   uploadedBytes: uploaded,
-        //   uploadSpeed: avgSpeed,
-        //   estimatedTimeRemaining: estimatedTime
-        // } : f));
-        onProgress(uploaded, total, avgSpeed);
+        setFiles(prev => prev.map(f => f.id === fileId ? {
+          ...f,
+          progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
+          uploadedBytes: uploaded,
+          uploadSpeed: avgSpeed,
+          estimatedTimeRemaining: estimatedTime
+        } : f));
 
       } catch (error) {
         console.error('解析进度数据失败:', error);
@@ -436,7 +431,7 @@ export default function UploadPage() {
         lastTime = now;
         const avgSpeed =
           speedSamples.reduce((s, v) => s + v, 0) / speedSamples.length;
-        onChunk?.(uploaded, file.size, avgSpeed);
+        onChunk(uploaded, file.size, avgSpeed);
       },
     });
 
@@ -507,25 +502,7 @@ export default function UploadPage() {
         } : f));
 
         // 4. 创建SSE连接监听进度
-        // eventSource = createProgressListener(taskId, file.id, file.file.size);
-        let useLocalProgress = true;
-        let localProgress = 0;
-
-        eventSource = createProgressListener(taskId, (uploaded, total, speed) => {
-          useLocalProgress = false;
-          const progress = total > 0 ? (uploaded / total) * 100 : 0;
-          const finalProgress = Math.max(localProgress, progress);
-          const remaining = total - uploaded;
-          const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
-
-          setFiles(prev => prev.map(f => f.id === file.id ? {
-            ...f,
-            progress: Math.min(finalProgress, 99),
-            uploadedBytes: uploaded,
-            uploadSpeed: speed,
-            estimatedTimeRemaining: eta,
-          } : f));
-        });
+        eventSource = createProgressListener(taskId, file.id, file.file.size);
 
         // 5. 等待SSE连接建立后再开始上传（最多等待10秒）
         await new Promise((resolve, reject) => {
@@ -578,35 +555,25 @@ export default function UploadPage() {
           file.file,
           uploadUrl,
           headers,
-          (uploaded, total, speed) => {
-            // const progress = total > 0 ? (uploaded / total) * 100 : 0;
-            localProgress = total > 0 ? (uploaded / total) * 100 : 0;
-
-            const remaining = total - uploaded;
-            const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
-            // setFiles(prev =>
-            //   prev.map(f =>
-            //     f.id === file.id
-            //       ? {
-            //           ...f,
-            //           progress: Math.min(progress, 99),
-            //           uploadedBytes: uploaded,
-            //           uploadSpeed: speed,
-            //           estimatedTimeRemaining: eta,
-            //         }
-            //       : f
-            //   )
-            // );
-            if (useLocalProgress) {
-              setFiles(prev => prev.map(f => f.id === file.id ? {
-                ...f,
-                progress: Math.min(localProgress, 99),
-                uploadedBytes: uploaded,
-                uploadSpeed: speed,
-                estimatedTimeRemaining: eta,
-              } : f));
-            }
-          }
+          // (uploaded, total, speed) => {
+          //   const progress = total > 0 ? (uploaded / total) * 100 : 0;
+          //   const remaining = total - uploaded;
+          //   const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
+          //   setFiles(prev =>
+          //     prev.map(f =>
+          //       f.id === file.id
+          //         ? {
+          //             ...f,
+          //             progress: Math.min(progress, 99),
+          //             uploadedBytes: uploaded,
+          //             uploadSpeed: speed,
+          //             estimatedTimeRemaining: eta,
+          //           }
+          //         : f
+          //     )
+          //   );
+          // }
+          () => {}
         );
 
         // 8. 关闭SSE连接
