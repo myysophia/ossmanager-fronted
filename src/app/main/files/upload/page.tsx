@@ -404,7 +404,8 @@ export default function UploadPage() {
     file: File,
     url: string,
     headers: Record<string, string>,
-    onChunk: (uploaded: number, total: number, speed: number) => void
+    // onChunk: (uploaded: number, total: number, speed: number) => void
+    onChunk?: (uploaded: number, total: number, speed: number) => void
   ) => {
     const reader = file.stream().getReader();
     let uploaded = 0;
@@ -430,7 +431,7 @@ export default function UploadPage() {
         lastTime = now;
         const avgSpeed =
           speedSamples.reduce((s, v) => s + v, 0) / speedSamples.length;
-        onChunk(uploaded, file.size, avgSpeed);
+        onChunk?.(uploaded, file.size, avgSpeed);
       },
     });
 
@@ -554,24 +555,25 @@ export default function UploadPage() {
           file.file,
           uploadUrl,
           headers,
-          (uploaded, total, speed) => {
-            const progress = total > 0 ? (uploaded / total) * 100 : 0;
-            const remaining = total - uploaded;
-            const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
-            setFiles(prev =>
-              prev.map(f =>
-                f.id === file.id
-                  ? {
-                      ...f,
-                      progress: Math.min(progress, 99),
-                      uploadedBytes: uploaded,
-                      uploadSpeed: speed,
-                      estimatedTimeRemaining: eta,
-                    }
-                  : f
-              )
-            );
-          }
+          // (uploaded, total, speed) => {
+          //   const progress = total > 0 ? (uploaded / total) * 100 : 0;
+          //   const remaining = total - uploaded;
+          //   const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
+          //   setFiles(prev =>
+          //     prev.map(f =>
+          //       f.id === file.id
+          //         ? {
+          //             ...f,
+          //             progress: Math.min(progress, 99),
+          //             uploadedBytes: uploaded,
+          //             uploadSpeed: speed,
+          //             estimatedTimeRemaining: eta,
+          //           }
+          //         : f
+          //     )
+          //   );
+          // }
+          () => {}
         );
 
         // 8. 关闭SSE连接
