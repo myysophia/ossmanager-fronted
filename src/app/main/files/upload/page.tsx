@@ -702,13 +702,13 @@ export default function UploadPage() {
             Math.min(15 * 1024 * 1024, fileSize / (targetDuration / 1000 * 6.67)) // 基于假进度15%计算合理速度
           );
           
-          console.log('🎭 启动假进度:', {
-            fileSize: formatFileSize(fileSize),
-            fileSizeMB: fileSizeMB.toFixed(1) + 'MB',
-            targetDuration: `${targetDuration/1000}秒`,
-            progressStep: `${progressStep.toFixed(3)}%/次`,
-            estimatedSpeed: formatUploadSpeed(estimatedSpeed)
-          });
+          // console.log('🎭 启动假进度:', {
+          //   fileSize: formatFileSize(fileSize),
+          //   fileSizeMB: fileSizeMB.toFixed(1) + 'MB',
+          //   targetDuration: `${targetDuration/1000}秒`,
+          //   progressStep: `${progressStep.toFixed(3)}%/次`,
+          //   estimatedSpeed: formatUploadSpeed(estimatedSpeed)
+          // });
           
           fakeProgressInterval = setInterval(() => {
             const elapsed = Date.now() - startTime;
@@ -774,7 +774,7 @@ export default function UploadPage() {
               
               // 如果检测到应该停止，清理定时器
               if (shouldStop && fakeProgressInterval) {
-                console.log('🛑 检测到后端进度，停止假进度');
+                // console.log('🛑 检测到后端进度，停止假进度');
                 clearInterval(fakeProgressInterval);
                 fakeProgressInterval = null;
               }
@@ -787,10 +787,10 @@ export default function UploadPage() {
           const maxCleanupTime = targetDuration + 10000;
           setTimeout(() => {
             if (fakeProgressInterval) {
-              console.log('🧹 假进度超时清理:', { 
-                fileId: file.id,
-                maxTime: `${maxCleanupTime/1000}秒`
-              });
+              // console.log('🧹 假进度超时清理:', { 
+              //   fileId: file.id,
+              //   maxTime: `${maxCleanupTime/1000}秒`
+              // });
               clearInterval(fakeProgressInterval);
               fakeProgressInterval = null;
             }
