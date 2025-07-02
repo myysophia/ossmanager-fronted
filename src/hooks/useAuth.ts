@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api/axios';
+import { handleTokenExpired, isAuthError } from '@/lib/utils/auth';
 
 interface User {
   id: number;
@@ -70,6 +71,15 @@ export const useAuth = () => {
         }
       }
     } catch (error) {
+      console.error('认证检查失败:', error);
+      // 如果是401认证错误，使用统一的处理函数
+      if (isAuthError(error)) {
+        setUser(null);
+        handleTokenExpired();
+        return;
+      }
+      
+      // 其他错误，尝试使用缓存的用户信息
       const userStr = localStorage.getItem('user');
       if (userStr) {
         const cachedUser = JSON.parse(userStr);

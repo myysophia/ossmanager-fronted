@@ -42,6 +42,7 @@ import {
 } from 'react-icons/fi';
 import { ColorModeToggle } from '../common/ColorModeToggle';
 import apiClient from '@/lib/api/axios';
+import { handleTokenExpired } from '@/lib/utils/auth';
 import { debug, log } from 'console';
 
 interface MainLayoutProps {
@@ -374,11 +375,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   // 处理登出
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    router.push('/auth/login');
-  }, [router]);
+    handleTokenExpired();
+  }, []);
 
   // 切换侧边栏状态
   const toggleSidebar = useCallback(() => {
@@ -408,6 +406,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
           }
         }
       } catch (error) {
+        console.error('获取用户信息失败:', error);
+        // 检查是否是认证错误
+        if (error && typeof error === 'object' && 'response' in error) {
+          const httpError = error as any;
+          if (httpError.response?.status === 401) {
+            handleTokenExpired();
+            return;
+          }
+        }
+        
+        // 其他错误，尝试使用缓存的用户信息
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const cachedUser = JSON.parse(userStr);

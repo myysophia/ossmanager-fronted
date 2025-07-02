@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { handleTokenExpired } from '../utils/auth';
 
 // 创建 axios 实例
 const request = axios.create({
@@ -33,10 +34,7 @@ request.interceptors.response.use(
     if (error.response) {
       // 处理 401 未授权错误
       if (error.response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          window.location.href = '/auth/login';
-        }
+        handleTokenExpired();
       }
       return Promise.reject(error.response.data);
     }
