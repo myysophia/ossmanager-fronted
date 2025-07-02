@@ -336,8 +336,11 @@ export default function UploadPage() {
       try {
         const data = JSON.parse(event.data);
         const { total, uploaded } = data;
-
-        hasReceivedBackendProgress = true;
+        // 🎯 标记已收到后端进度，停止假进度（通过全局查找）
+        if (!hasReceivedBackendProgress) {
+          hasReceivedBackendProgress = true;
+          console.log('🎯 后端进度开始，假进度应该自动停止');
+        }
 
         const now = Date.now();
         const timeDiff = (now - lastUpdateTime) / 1000; // 秒
@@ -372,16 +375,32 @@ export default function UploadPage() {
 
         console.log('后端进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
 
-        // 切换到后端进度源
-        setFiles(prev => prev.map(f => f.id === fileId ? {
-          ...f,
-          progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
-          backendProgress: progress,
-          uploadedBytes: uploaded,
-          uploadSpeed: avgSpeed,
-          estimatedTimeRemaining: estimatedTime,
-          progressSource: 'backend' as const
-        } : f));
+        // 🔄 切换到后端进度源，确保无缝接管
+        setFiles(prev => prev.map(f => {
+          if (f.id === fileId) {
+            // 确保后端进度不低于当前显示的进度，避免进度倒退
+            const currentProgress = f.progress || 0;
+            const newProgress = Math.max(progress, currentProgress);
+            
+            console.log('🔄 后端进度接管:', {
+              fileId: f.id,
+              currentProgress,
+              backendProgress: progress,
+              finalProgress: Math.min(newProgress, 99)
+            });
+            
+            return {
+              ...f,
+              progress: Math.min(newProgress, 99), // 限制在99%，等待上传完成确认
+              backendProgress: progress,
+              uploadedBytes: uploaded,
+              uploadSpeed: avgSpeed,
+              estimatedTimeRemaining: estimatedTime,
+              progressSource: 'backend' as const
+            };
+          }
+          return f;
+        }));
 
       } catch (error) {
         console.error('解析进度数据失败:', error);
@@ -467,23 +486,37 @@ export default function UploadPage() {
             const remaining = file.size - uploaded;
             const eta = avgSpeed > 0 && remaining > 0 ? remaining / avgSpeed : 0;
             
-            console.log('前端进度更新:', { progress: progress.toFixed(1), uploaded, total: file.size, avgSpeed });
+            console.log('前端进度更新:', { progress: progress.toFixed(1), uploaded, total: file.size, avgSpeed, fileId });
             
-            // 只在还没收到后端进度时更新前端进度
-            setFiles(prev => prev.map(f => {
-              if (f.id === fileId && f.progressSource !== 'backend') {
-                return {
-                  ...f,
-                  progress: Math.min(progress, 90), // 前端最多显示90%
-                  frontendProgress: progress,
-                  uploadedBytes: uploaded,
-                  uploadSpeed: avgSpeed,
-                  estimatedTimeRemaining: eta,
-                  progressSource: 'frontend' as const
-                };
-              }
-              return f;
-            }));
+            // 🔧 强制更新前端进度，确保UI立即响应
+            setFiles(prev => {
+              const updated = prev.map(f => {
+                if (f.id === fileId) {
+                  console.log('📊 更新文件进度:', {
+                    fileId: f.id,
+                    currentProgressSource: f.progressSource,
+                    currentProgress: f.progress,
+                    newProgress: Math.min(progress, 90)
+                  });
+                  
+                  // 只有在还没切换到后端进度时才更新前端进度
+                  if (f.progressSource !== 'backend') {
+                    return {
+                      ...f,
+                      progress: Math.min(progress, 90), // 前端最多显示90%
+                      frontendProgress: progress,
+                      uploadedBytes: uploaded,
+                      uploadSpeed: avgSpeed,
+                      estimatedTimeRemaining: eta,
+                      progressSource: 'frontend' as const
+                    };
+                  }
+                }
+                return f;
+              });
+              
+              return updated;
+            });
           }
         },
       });
@@ -564,6 +597,7 @@ export default function UploadPage() {
       if (file.status !== 'ready') return;
       
       let eventSource: EventSource | null = null;
+      let fakeProgressInterval: NodeJS.Timeout | null = null; // 🔧 提升作用域
       
       try {
         const startTime = Date.now();
@@ -593,38 +627,75 @@ export default function UploadPage() {
           progressSource: 'frontend' as const  // 开始时使用前端进度
         } : f));
 
-        // 4. 创建SSE连接监听进度
+        // 4. 创建SSE连接监听进度（异步，不阻塞上传）
         eventSource = createProgressListener(taskId, file.id, file.file.size);
-
-        // 5. 等待SSE连接建立后再开始上传（最多等待10秒）
-        await new Promise((resolve, reject) => {
-          const startTime = Date.now();
-          const timeout = 5000; // 10秒超时
-          
-          if (eventSource?.readyState === EventSource.OPEN) {
-            console.log('SSE连接已经是打开状态');
-            resolve(void 0);
-            return;
-          }
-          
-          const checkConnection = () => {
-            console.log('检查SSE连接状态:', eventSource?.readyState);
-            
-            if (eventSource?.readyState === EventSource.OPEN) {
-              console.log('SSE连接已建立');
-              resolve(void 0);
-            } else if (Date.now() - startTime > timeout) {
-              console.error('SSE连接超时');
-              reject(new Error('SSE连接超时'));
-            } else {
-              setTimeout(checkConnection, 100);
+        
+        // 🎬 立即启动假进度动画，提升用户体验
+        const startFakeProgress = () => {
+          let fakeProgress = 0;
+          fakeProgressInterval = setInterval(() => {
+            fakeProgress += Math.random() * 2 + 0.5; // 随机增长0.5-2.5%
+            if (fakeProgress >= 15) { // 假进度最多到15%就停下等待真实进度
+              if (fakeProgressInterval) {
+                clearInterval(fakeProgressInterval);
+                fakeProgressInterval = null;
+              }
+              return;
             }
-          };
+            
+            setFiles(prev => {
+              let shouldStop = false;
+              const updated = prev.map(f => {
+                if (f.id === file.id) {
+                  // 🛑 如果已经切换到后端进度，停止假进度
+                  if (f.progressSource === 'backend') {
+                    shouldStop = true;
+                    return f;
+                  }
+                  
+                  // 只在前端进度状态且进度小于15%时更新假进度
+                  if (f.progressSource === 'frontend' && f.progress < 15) {
+                    console.log('🎭 假进度更新:', { 
+                      fakeProgress: fakeProgress.toFixed(1), 
+                      fileId: file.id,
+                      currentProgress: f.progress 
+                    });
+                    return {
+                      ...f,
+                      progress: Math.min(fakeProgress, 15),
+                      frontendProgress: fakeProgress,
+                      progressSource: 'frontend' as const
+                    };
+                  }
+                }
+                return f;
+              });
+              
+              // 如果检测到应该停止，清理定时器
+              if (shouldStop && fakeProgressInterval) {
+                console.log('🛑 检测到后端进度，停止假进度');
+                clearInterval(fakeProgressInterval);
+                fakeProgressInterval = null;
+              }
+              
+              return updated;
+            });
+          }, 300); // 每300ms更新一次假进度
           
-          checkConnection();
-        });
-
-        console.log('SSE连接已就绪，开始文件上传');
+          // 10秒后清理假进度定时器
+          setTimeout(() => {
+            if (fakeProgressInterval) {
+              clearInterval(fakeProgressInterval);
+              fakeProgressInterval = null;
+            }
+          }, 10000);
+        };
+        
+        // 立即启动假进度
+        startFakeProgress();
+        
+        // 🚀 优化：不等待SSE连接，立即开始上传，提升用户体验
+        console.log('SSE连接创建完成，立即开始文件上传（并行执行）');
 
         // 6. 执行流式文件上传（新的API规范）
         const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -657,9 +728,13 @@ export default function UploadPage() {
           file.id  // 传入fileId
         );
 
-        // 8. 关闭SSE连接
+        // 8. 清理资源
         if (eventSource) {
           eventSource.close();
+        }
+        if (fakeProgressInterval) {
+          clearInterval(fakeProgressInterval);
+          fakeProgressInterval = null;
         }
         
         // 9. 更新为完成状态
@@ -674,9 +749,13 @@ export default function UploadPage() {
         } : f));
         
       } catch (error) {
-        // 确保关闭SSE连接
+        // 确保清理所有资源
         if (eventSource) {
           eventSource.close();
+        }
+        if (fakeProgressInterval) {
+          clearInterval(fakeProgressInterval);
+          fakeProgressInterval = null;
         }
         
         setFiles(prev => prev.map(f => f.id === file.id ? { 
