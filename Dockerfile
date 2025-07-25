@@ -19,7 +19,7 @@ COPY . .
 # 构建应用
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-ARG NEXT_PUBLIC_API_URL=https://pan.novaicloud.com/api/v1
+ARG NEXT_PUBLIC_API_URL=https://oss-api.novastar.tech/api/v1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 

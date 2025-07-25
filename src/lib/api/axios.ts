@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { handleTokenExpired, isAuthError } from '../utils/auth';
 
 // 创建axios实例
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://pan.novaicloud.com/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
   timeout: 3600000,
   headers: {
     'Content-Type': 'application/json',
@@ -79,13 +80,9 @@ apiClient.interceptors.response.use(
     if (error.response) {
       const status = error.response.status;
       
-      if (status === 401 && typeof window !== 'undefined') {
-        // token 过期或无效，清除本地存储并跳转到登录页
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
-        }
+      if (status === 401) {
+        // token 过期或无效，使用统一的处理函数
+        handleTokenExpired();
       } else {
         // 记录错误信息
         const errorMessage = error.response.data?.message || '请求失败';

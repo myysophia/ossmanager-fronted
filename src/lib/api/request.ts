@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { handleTokenExpired } from '../utils/auth';
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://pan.novaicloud.com/api/v1',
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -33,10 +34,7 @@ request.interceptors.response.use(
     if (error.response) {
       // 处理 401 未授权错误
       if (error.response.status === 401) {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          window.location.href = '/auth/login';
-        }
+        handleTokenExpired();
       }
       return Promise.reject(error.response.data);
     }

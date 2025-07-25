@@ -43,6 +43,10 @@ interface UploadFile {
   startTime?: number;
   estimatedTimeRemaining?: number;
   taskId?: string;
+  // 混合进度方案：解决进度条走两次的问题
+  frontendProgress?: number;  // 前端流式读取进度（快速响应，最多90%）
+  backendProgress?: number;   // 后端真实上传进度（准确反映分片上传）
+  progressSource?: 'frontend' | 'backend';  // 当前显示的进度来源（智能切换）
 }
 
 // 安全配置
@@ -200,6 +204,9 @@ export default function UploadPage() {
         file: file,
         progress: 0,
         status: 'ready' as const,
+        frontendProgress: 0,
+        backendProgress: 0,
+        progressSource: 'frontend' as const
       }));
       setFiles(prev => [...prev, ...newFiles]);
     }
@@ -249,9 +256,13 @@ export default function UploadPage() {
         total: fileSize
       });
 
-      console.log('初始化上传任务响应:', response.data);
+      console.log('初始化上传任务响应:', response);
       
-      const apiResponse = response.data;
+      // 处理axios响应拦截器返回的不同格式
+      let apiResponse: any = response;
+      if ('data' in response && response.data) {
+        apiResponse = response.data;
+      }
       
       // 检查响应格式
       if (!apiResponse || typeof apiResponse !== 'object') {
@@ -260,18 +271,19 @@ export default function UploadPage() {
       }
       
       // 检查API响应状态
-      if (response.code !== 200) {
+      if ('code' in apiResponse && apiResponse.code !== 200 && apiResponse.code !== 0) {
         throw new Error(`初始化上传任务失败: ${apiResponse.message || '未知错误'}`);
       }
 
       // 检查是否有data和task_id
-      if (!response.data || !response.data.id) {
+      const taskData = apiResponse.data || apiResponse;
+      if (!taskData || !taskData.id) {
         console.error('响应中缺少task_id:', apiResponse);
         throw new Error('服务器返回的数据中缺少task_id');
       }
 
-      console.log('获取到task_id:', response.data.id);
-      return response.data.id;
+      console.log('获取到task_id:', taskData.id);
+      return taskData.id;
     } catch (error: any) {
       console.error('初始化上传任务失败，完整错误对象:', error);
       console.error('错误类型:', typeof error);
@@ -318,11 +330,17 @@ export default function UploadPage() {
     let lastUpdateTime = Date.now();
     let lastUploadedBytes = 0;
     let speedSamples: number[] = [];
+    let hasReceivedBackendProgress = false;
 
     eventSource.addEventListener('progress', (event) => {
       try {
         const data = JSON.parse(event.data);
         const { total, uploaded } = data;
+        // 🎯 标记已收到后端进度，停止假进度（通过全局查找）
+        if (!hasReceivedBackendProgress) {
+          hasReceivedBackendProgress = true;
+          // console.log('🎯 后端进度开始，假进度应该自动停止');
+        }
 
         const now = Date.now();
         const timeDiff = (now - lastUpdateTime) / 1000; // 秒
@@ -330,7 +348,7 @@ export default function UploadPage() {
 
         // 计算上传速度
         let currentSpeed = 0;
-        if (timeDiff >= 2 && bytesDiff > 0) { // 每0.5秒更新一次速度
+        if (timeDiff >= 2 && bytesDiff > 0) { // 每2秒更新一次速度
           currentSpeed = bytesDiff / timeDiff;
           
           // 保留最近5个速度样本以平滑计算
@@ -355,16 +373,60 @@ export default function UploadPage() {
         const remainingBytes = total - uploaded;
         const estimatedTime = avgSpeed > 0 && remainingBytes > 0 ? remainingBytes / avgSpeed : 0;
 
-        console.log('进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
+        console.log('后端进度更新:', { progress: progress.toFixed(1), uploaded, total, avgSpeed });
 
-        // 更新文件状态
-        setFiles(prev => prev.map(f => f.id === fileId ? {
-          ...f,
-          progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
-          uploadedBytes: uploaded,
-          uploadSpeed: avgSpeed,
-          estimatedTimeRemaining: estimatedTime
-        } : f));
+        // 🔄 只有当后端有实际进度时才切换，避免0%进度接管
+        setFiles(prev => prev.map(f => {
+          if (f.id === fileId) {
+            const currentProgress = f.progress || 0;
+            
+            // 🎯 关键修复：只有当后端进度 > 0 且 >= 当前进度时才切换到后端进度源
+            if (progress > 0 && progress >= currentProgress) {
+              const currentUploadedBytes = f.uploadedBytes || 0;
+              // 🛡️ 确保上传字节数不倒退
+              const safeUploadedBytes = Math.max(uploaded, currentUploadedBytes);
+              
+              // console.log('🔄 后端进度接管:', {
+              //   fileId: f.id,
+              //   currentProgress,
+              //   backendProgress: progress,
+              //   finalProgress: Math.min(progress, 99),
+              //   currentUploadedBytes: formatFileSize(currentUploadedBytes),
+              //   backendUploadedBytes: formatFileSize(uploaded),
+              //   safeUploadedBytes: formatFileSize(safeUploadedBytes),
+              //   reason: '后端有实际进度且不低于当前进度'
+              // });
+              
+              return {
+                ...f,
+                progress: Math.min(progress, 99), // 限制在99%，等待上传完成确认
+                backendProgress: progress,
+                uploadedBytes: safeUploadedBytes, // 🛡️ 防止文件大小倒退
+                uploadSpeed: avgSpeed,
+                estimatedTimeRemaining: estimatedTime,
+                progressSource: 'backend' as const
+              };
+            } else {
+              // 只更新后端进度数据，但不切换进度源
+              // console.log('📊 后端进度数据更新:', {
+              //   fileId: f.id,
+              //   currentProgress,
+              //   backendProgress: progress,
+              //   reason: progress <= 0 ? '后端进度为0，保持前端进度' : '后端进度低于当前进度，避免倒退'
+              // });
+              
+              return {
+                ...f,
+                backendProgress: progress,
+                // 🛡️ 不更新 uploadedBytes，避免倒退
+                uploadSpeed: avgSpeed > 0 ? avgSpeed : f.uploadSpeed, // 保持前端速度计算
+                estimatedTimeRemaining: estimatedTime > 0 ? estimatedTime : f.estimatedTimeRemaining
+                // progressSource 保持不变
+              };
+            }
+          }
+          return f;
+        }));
 
       } catch (error) {
         console.error('解析进度数据失败:', error);
@@ -389,6 +451,16 @@ export default function UploadPage() {
     eventSource.onerror = (error) => {
       console.error('SSE连接错误:', error);
       console.error('SSE readyState:', eventSource.readyState);
+      
+      // 如果还没收到后端进度，继续显示前端进度
+      if (!hasReceivedBackendProgress) {
+        console.log('SSE连接失败，回退到前端进度显示');
+        setFiles(prev => prev.map(f => f.id === fileId ? {
+          ...f,
+          progressSource: 'frontend' as const
+        } : f));
+      }
+      
       if (eventSource.readyState === EventSource.CLOSED) {
         console.log('SSE连接已关闭');
       } else if (eventSource.readyState === EventSource.CONNECTING) {
@@ -399,53 +471,147 @@ export default function UploadPage() {
     return eventSource;
   };
 
-  // 通过 ReadableStream 以 chunk 方式上传文件
+  // 通过 ReadableStream 以 chunk 方式上传文件（带前端进度监听和自动降级）
   const streamUploadFile = async (
     file: File,
     url: string,
     headers: Record<string, string>,
-    onChunk: (uploaded: number, total: number, speed: number) => void
+    fileId: string  // 传入fileId用于更新状态
   ) => {
-    const reader = file.stream().getReader();
-    let uploaded = 0;
-    let lastTime = Date.now();
-    const speedSamples: number[] = [];
+    // 🔧 智能选择上传方案：
+    // - 优先使用ReadableStream（有前端进度）
+    // - 如果Content-Length设置失败，自动降级到File对象
+    let useStreamMethod = true;
+    
+    if (useStreamMethod) {
+      const reader = file.stream().getReader();
+      let uploaded = 0;
+      let lastTime = Date.now();
+      const speedSamples: number[] = [];
 
-    const stream = new ReadableStream({
-      async pull(controller) {
-        const { done, value } = await reader.read();
-        if (done) {
-          controller.close();
-          return;
+      const stream = new ReadableStream({
+        async pull(controller) {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(value);
+          uploaded += value.length;
+          
+          const now = Date.now();
+          const diff = (now - lastTime) / 1000;
+          if (diff > 0.5) {  // 降低更新频率到每0.5秒
+            const sample = value.length / diff;
+            speedSamples.push(sample);
+            if (speedSamples.length > 3) speedSamples.shift(); // 减少到3个样本
+            lastTime = now;
+            
+            const avgSpeed = speedSamples.reduce((s, v) => s + v, 0) / speedSamples.length;
+            const progress = (uploaded / file.size) * 100;
+            const remaining = file.size - uploaded;
+            const eta = avgSpeed > 0 && remaining > 0 ? remaining / avgSpeed : 0;
+            
+            console.log('前端进度更新:', { progress: progress.toFixed(1), uploaded, total: file.size, avgSpeed, fileId });
+            
+            // 🔧 强制更新前端进度，确保UI立即响应且不倒退
+            setFiles(prev => {
+              const updated = prev.map(f => {
+                if (f.id === fileId) {
+                  const currentProgress = f.progress || 0;
+                  const newProgress = Math.min(progress, 90); // 前端最多显示90%
+                  
+                  console.log('📊 更新文件进度:', {
+                    fileId: f.id,
+                    currentProgressSource: f.progressSource,
+                    currentProgress,
+                    calculatedProgress: progress.toFixed(1),
+                    finalProgress: Math.max(newProgress, currentProgress).toFixed(1)
+                  });
+                  
+                  // 只有在还没切换到后端进度时才更新前端进度
+                  if (f.progressSource !== 'backend') {
+                    // 🎯 关键：确保进度不倒退，取当前进度和新进度的较大值
+                    const safeProgress = Math.max(newProgress, currentProgress);
+                    
+                    // 🛑 如果已经到达90%，停止更新等待后端接管
+                    if (safeProgress >= 90) {
+                      // console.log('⏸️ 前端进度到达90%，等待后端接管:', {
+                      //   fileId: f.id,
+                      //   progress: safeProgress,
+                      //   uploadedBytes: formatFileSize(f.uploadedBytes || 0)
+                      // });
+                      // 保持当前状态不变，等待后端接管
+                      return f;
+                    }
+                    
+                    return {
+                      ...f,
+                      progress: safeProgress, // 确保进度不倒退
+                      frontendProgress: progress,
+                      uploadedBytes: Math.max(uploaded, f.uploadedBytes || 0), // 🛡️ 防止文件大小倒退
+                      uploadSpeed: avgSpeed,
+                      estimatedTimeRemaining: eta,
+                      progressSource: 'frontend' as const
+                    };
+                  }
+                }
+                return f;
+              });
+              
+              return updated;
+            });
+          }
+        },
+      });
+
+      // 修复duplex类型问题
+      const fetchOptions: RequestInit = {
+        method: 'POST',
+        headers,
+        body: stream,
+      };
+      
+      // 类型断言处理duplex属性
+      (fetchOptions as any).duplex = 'half';
+
+      console.log('使用ReadableStream上传，预期文件大小:', file.size);
+      
+      try {
+        const response = await fetch(url, fetchOptions);
+
+        if (!response.ok) {
+          throw new Error(`上传失败: ${response.status}`);
         }
-        controller.enqueue(value);
-        uploaded += value.length;
-        const now = Date.now();
-        const diff = (now - lastTime) / 1000;
-        if (diff > 0) {
-          const sample = value.length / diff;
-          speedSamples.push(sample);
-          if (speedSamples.length > 5) speedSamples.shift();
-        }
-        lastTime = now;
-        const avgSpeed =
-          speedSamples.reduce((s, v) => s + v, 0) / speedSamples.length;
-        onChunk(uploaded, file.size, avgSpeed);
-      },
-    });
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: stream,
-      duplex: 'half'      // Required by the Fetch spec when using a ReadableStream as the body
-    });
-
-    if (!response.ok) {
-      throw new Error(`上传失败: ${response.status}`);
+        return response.json();
+      } catch (error) {
+        console.warn('ReadableStream上传失败，尝试降级到File对象上传:', error);
+        useStreamMethod = false; // 标记降级
+        // 继续执行方案2
+      }
     }
+    
+    if (!useStreamMethod) {
+      // 🔧 方案2：直接使用File对象（降级方案，浏览器自动处理Content-Length）
+      console.log('使用File对象直接上传（降级方案），文件大小:', file.size);
+      
+      // 移除可能冲突的Content-Length头，让浏览器自动设置
+      const cleanHeaders = { ...headers };
+      delete cleanHeaders['Content-Length'];
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: cleanHeaders,
+        body: file, // 直接使用File对象
+      });
 
-    return response.json();
+      if (!response.ok) {
+        throw new Error(`上传失败: ${response.status}`);
+      }
+
+      return response.json();
+    }
   };
 
   const handleUpload = async () => {
@@ -475,6 +641,7 @@ export default function UploadPage() {
       if (file.status !== 'ready') return;
       
       let eventSource: EventSource | null = null;
+      let fakeProgressInterval: NodeJS.Timeout | null = null; // 🔧 提升作用域
       
       try {
         const startTime = Date.now();
@@ -487,7 +654,10 @@ export default function UploadPage() {
           startTime,
           uploadedBytes: 0,
           uploadSpeed: 0,
-          estimatedTimeRemaining: 0
+          estimatedTimeRemaining: 0,
+          frontendProgress: 0,
+          backendProgress: 0,
+          progressSource: 'frontend' as const
         } : f));
 
         // 2. 初始化上传任务，获取task_id
@@ -497,41 +667,141 @@ export default function UploadPage() {
         setFiles(prev => prev.map(f => f.id === file.id ? { 
           ...f, 
           status: 'uploading' as const,
-          taskId
+          taskId,
+          progressSource: 'frontend' as const  // 开始时使用前端进度
         } : f));
 
-        // 4. 创建SSE连接监听进度
+        // 4. 创建SSE连接监听进度（异步，不阻塞上传）
         eventSource = createProgressListener(taskId, file.id, file.file.size);
-
-        // 5. 等待SSE连接建立后再开始上传（最多等待10秒）
-        await new Promise((resolve, reject) => {
+        
+        // 🎬 立即启动假进度动画，提升用户体验
+        const startFakeProgress = () => {
+          let fakeProgress = 0;
           const startTime = Date.now();
-          const timeout = 5000; // 10秒超时
+          const fileSize = file.file.size;
+          const fileSizeMB = fileSize / (1024 * 1024);
           
-          if (eventSource?.readyState === EventSource.OPEN) {
-            console.log('SSE连接已经是打开状态');
-            resolve(void 0);
-            return;
-          }
-          
-          const checkConnection = () => {
-            console.log('检查SSE连接状态:', eventSource?.readyState);
-            
-            if (eventSource?.readyState === EventSource.OPEN) {
-              console.log('SSE连接已建立');
-              resolve(void 0);
-            } else if (Date.now() - startTime > timeout) {
-              console.error('SSE连接超时');
-              reject(new Error('SSE连接超时'));
-            } else {
-              setTimeout(checkConnection, 100);
-            }
+          // 🎯 根据文件大小智能调整假进度持续时间
+          const calculateFakeDuration = (sizeMB: number): number => {
+            if (sizeMB < 60) return 6000;      // <60MB: 6秒
+            if (sizeMB < 100) return 10000;    // 60-100MB: 10秒
+            if (sizeMB < 300) return 30000;    // 100-300MB: 30秒
+            if (sizeMB < 500) return 50000;    // 300-500MB: 50秒
+            if (sizeMB < 1000) return 80000;   // 500-1000MB: 80秒
+            return Math.min(120000, sizeMB * 100); // >1000MB: 最多120秒
           };
           
-          checkConnection();
-        });
-
-        console.log('SSE连接已就绪，开始文件上传');
+          const targetDuration = calculateFakeDuration(fileSizeMB);
+          const targetProgress = 15;
+          const updateInterval = 2000; // 300ms更新一次
+          const progressStep = (targetProgress / targetDuration) * updateInterval; // 每次更新的进度量
+          
+          // 模拟合理的上传速度：根据文件大小和预期时间计算
+          const estimatedSpeed = Math.max(
+            1 * 1024 * 1024,  // 最小1MB/s
+            Math.min(15 * 1024 * 1024, fileSize / (targetDuration / 1000 * 6.67)) // 基于假进度15%计算合理速度
+          );
+          
+          // console.log('🎭 启动假进度:', {
+          //   fileSize: formatFileSize(fileSize),
+          //   fileSizeMB: fileSizeMB.toFixed(1) + 'MB',
+          //   targetDuration: `${targetDuration/1000}秒`,
+          //   progressStep: `${progressStep.toFixed(3)}%/次`,
+          //   estimatedSpeed: formatUploadSpeed(estimatedSpeed)
+          // });
+          
+          fakeProgressInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            fakeProgress += progressStep; // 匀速增长
+            
+            if (fakeProgress >= 15 || elapsed >= targetDuration) { // 假进度最多到15%或超时就停下
+              if (fakeProgressInterval) {
+                clearInterval(fakeProgressInterval);
+                fakeProgressInterval = null;
+              }
+              return;
+            }
+            
+            // 计算假进度对应的上传数据
+            const fakeUploadedBytes = Math.floor((fakeProgress / 100) * fileSize);
+            const fakeRemainingBytes = fileSize - fakeUploadedBytes;
+            const fakeETA = fakeRemainingBytes / estimatedSpeed;
+            
+            setFiles(prev => {
+              let shouldStop = false;
+              const updated = prev.map(f => {
+                if (f.id === file.id) {
+                  // 🛑 如果已经切换到后端进度，停止假进度
+                  if (f.progressSource === 'backend') {
+                    shouldStop = true;
+                    return f;
+                  }
+                  
+                  // 只在前端进度状态且进度小于等于假进度时更新假进度
+                  if (f.progressSource === 'frontend' && f.progress <= fakeProgress) {
+                    console.log('🎭 假进度更新:', { 
+                      fakeProgress: fakeProgress.toFixed(1), 
+                      fileId: file.id,
+                      currentProgress: f.progress,
+                      uploadedBytes: formatFileSize(fakeUploadedBytes),
+                      speed: formatUploadSpeed(estimatedSpeed),
+                      eta: formatTimeRemaining(fakeETA)
+                    });
+                    
+                    return {
+                      ...f,
+                      progress: Math.min(fakeProgress, 15),
+                      frontendProgress: fakeProgress,
+                      uploadedBytes: fakeUploadedBytes,
+                      uploadSpeed: estimatedSpeed,
+                      estimatedTimeRemaining: fakeETA,
+                      progressSource: 'frontend' as const
+                    };
+                  } else if (f.progressSource === 'frontend' && f.progress > fakeProgress) {
+                    // 🎯 真实前端进度已经超过假进度，停止假进度
+                    // console.log('🎯 真实前端进度接管:', {
+                    //   fileId: file.id,
+                    //   fakeProgress: fakeProgress.toFixed(1),
+                    //   realProgress: f.progress,
+                    //   reason: '真实进度超过假进度'
+                    // });
+                    shouldStop = true;
+                    return f; // 不修改状态，保持真实进度
+                  }
+                }
+                return f;
+              });
+              
+              // 如果检测到应该停止，清理定时器
+              if (shouldStop && fakeProgressInterval) {
+                // console.log('🛑 检测到后端进度，停止假进度');
+                clearInterval(fakeProgressInterval);
+                fakeProgressInterval = null;
+              }
+              
+              return updated;
+            });
+          }, updateInterval); // 每300ms更新一次假进度
+          
+          // 设置最大清理时间：假进度持续时间 + 10秒缓冲
+          const maxCleanupTime = targetDuration + 10000;
+          setTimeout(() => {
+            if (fakeProgressInterval) {
+              // console.log('🧹 假进度超时清理:', { 
+              //   fileId: file.id,
+              //   maxTime: `${maxCleanupTime/1000}秒`
+              // });
+              clearInterval(fakeProgressInterval);
+              fakeProgressInterval = null;
+            }
+          }, maxCleanupTime);
+        };
+        
+        // 立即启动假进度
+        startFakeProgress();
+        
+        // 🚀 优化：不等待SSE连接，立即开始上传，提升用户体验
+        console.log('SSE连接创建完成，立即开始文件上传（并行执行）');
 
         // 6. 执行流式文件上传（新的API规范）
         const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -543,40 +813,34 @@ export default function UploadPage() {
 
         const headers: Record<string, string> = {
           'Content-Type': 'application/octet-stream',
+          'Content-Length': file.file.size.toString(), // 🔧 修复：明确设置文件大小
           'X-File-Name': encodedFileName,
           region_code: selectedBucket.region_code,
           bucket_name: selectedBucket.bucket_name,
         };
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (taskId) headers['Upload-Task-ID'] = taskId;
+        
+        console.log('设置上传Headers:', {
+          'Content-Length': headers['Content-Length'],
+          'X-File-Name': headers['X-File-Name'],
+          'Upload-Task-ID': headers['Upload-Task-ID']
+        });
 
         const result = await streamUploadFile(
           file.file,
           uploadUrl,
           headers,
-          (uploaded, total, speed) => {
-            const progress = total > 0 ? (uploaded / total) * 100 : 0;
-            const remaining = total - uploaded;
-            const eta = speed > 0 && remaining > 0 ? remaining / speed : 0;
-            setFiles(prev =>
-              prev.map(f =>
-                f.id === file.id
-                  ? {
-                      ...f,
-                      progress: Math.min(progress, 99),
-                      uploadedBytes: uploaded,
-                      uploadSpeed: speed,
-                      estimatedTimeRemaining: eta,
-                    }
-                  : f
-              )
-            );
-          }
+          file.id  // 传入fileId
         );
 
-        // 8. 关闭SSE连接
+        // 8. 清理资源
         if (eventSource) {
           eventSource.close();
+        }
+        if (fakeProgressInterval) {
+          clearInterval(fakeProgressInterval);
+          fakeProgressInterval = null;
         }
         
         // 9. 更新为完成状态
@@ -591,9 +855,13 @@ export default function UploadPage() {
         } : f));
         
       } catch (error) {
-        // 确保关闭SSE连接
+        // 确保清理所有资源
         if (eventSource) {
           eventSource.close();
+        }
+        if (fakeProgressInterval) {
+          clearInterval(fakeProgressInterval);
+          fakeProgressInterval = null;
         }
         
         setFiles(prev => prev.map(f => f.id === file.id ? { 
@@ -797,7 +1065,7 @@ export default function UploadPage() {
                             value={file.progress}
                             size="sm"
                             width="100%"
-                            colorScheme="blue"
+                            colorScheme={file.progressSource === 'backend' ? 'green' : 'blue'}
                           />
                           <HStack justify="space-between" width="100%" fontSize="xs" color="gray.600">
                             <Text>
@@ -814,6 +1082,15 @@ export default function UploadPage() {
                             <Text>
                               剩余: {file.estimatedTimeRemaining ? formatTimeRemaining(file.estimatedTimeRemaining) : '--'}
                             </Text>
+                          </HStack>
+                          {/* 进度来源指示 */}
+                          <HStack justify="center" width="100%" fontSize="xs">
+                            {file.progressSource === 'frontend' && (
+                              <Text color="blue.500">📤 正在传输到服务器...</Text>
+                            )}
+                            {file.progressSource === 'backend' && (
+                              <Text color="green.500">⚡ 服务器处理中...</Text>
+                            )}
                           </HStack>
                         </VStack>
                       )}

@@ -472,6 +472,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                   onChange={(e) => handleUsernameChange(e.target.value)}
                   placeholder="请输入用户名 (3-32个字符)"
                   isDisabled={!!user}
+                  autoComplete="off"
                 />
                 {!user && username && !errors.username && (
                   <InputRightElement>
@@ -500,6 +501,7 @@ export default function UserForm({ isOpen, onClose, user, onSuccess }: UserFormP
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
                   placeholder="请输入密码 (6-32个字符)"
+                  autoComplete="off"
                 />
                 {password && (
                   <Box mt={2}>
