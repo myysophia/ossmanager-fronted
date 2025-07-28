@@ -94,10 +94,15 @@ export const FileAPI = {
   /**
    * 获取文件下载链接
    * @param id 文件ID
+   * @param expireHours 过期时间（小时），支持1,2,3,6,12,24,48，0表示永不过期
    * @returns 下载链接和过期时间
    */
-  getFileDownloadURL: async (id: number): Promise<FileDownloadResponse> => {
-    const response = await apiClient.get<ApiResponse<FileDownloadResponse>>(`/oss/files/${id}/download`);
+  getFileDownloadURL: async (id: number, expireHours?: number): Promise<FileDownloadResponse> => {
+    const params: any = {};
+    if (expireHours !== undefined) {
+      params.expire_hours = expireHours;
+    }
+    const response = await apiClient.get<ApiResponse<FileDownloadResponse>>(`/oss/files/${id}/download`, { params });
     return response.data as unknown as FileDownloadResponse;
   },
 

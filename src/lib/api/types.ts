@@ -212,7 +212,9 @@ export interface MultipartCompleteParams {
 // 文件下载响应
 export interface FileDownloadResponse {
   download_url: string;
-  expires_in: number;
+  never_expires?: boolean;
+  expires?: string;
+  expire_hours?: number;
 }
 
 export interface FileUploadResponse {

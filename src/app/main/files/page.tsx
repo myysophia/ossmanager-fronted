@@ -36,12 +36,13 @@ import {
   ModalFooter,
   ModalCloseButton,
 } from '@chakra-ui/react';
-import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw, FiLink } from 'react-icons/fi';
+import { FiDownload, FiTrash2, FiMoreVertical, FiSearch, FiRefreshCw, FiShare2 } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api/files';
 import { OSSFile, FileQueryParams } from '@/lib/api/types';
 import { css } from '@emotion/react';
 import { debug } from 'console';
 import apiClient from '@/lib/api/axios';
+import ShareLinkModal from '@/components/ShareLinkModal';
 
 // 添加可调整列宽的样式
 const resizableTableStyles = css`
@@ -362,35 +363,18 @@ export default function FileListPage() {
     });
   };
 
-  const handleCopyLink = async (file: OSSFile) => {
-    try {
-      // 获取OSS下载链接
-      const response = await FileAPI.getFileDownloadURL(file.id);
-      const downloadUrl = response.download_url;
-      
-      if (!downloadUrl) {
-        throw new Error('无法获取下载链接');
-      }
-      
-      // 复制到剪贴板
-      await navigator.clipboard.writeText(downloadUrl);
-      
-      toast({
-        title: '链接已复制',
-        description: 'OSS下载链接已复制到剪贴板',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: '复制失败',
-        description: error instanceof Error ? error.message : '复制链接失败，请重试',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    }
+  // 分享链接相关状态
+  const [shareFile, setShareFile] = useState<OSSFile | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  const handleShareLink = (file: OSSFile) => {
+    setShareFile(file);
+    setIsShareModalOpen(true);
+  };
+
+  const handleCloseShareModal = () => {
+    setIsShareModalOpen(false);
+    setShareFile(null);
   };
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -654,11 +638,11 @@ export default function FileListPage() {
                                 onClick={() => handleDownload(file.id)}
                               />
                               <IconButton
-                                aria-label="复制链接"
-                                icon={<FiLink />}
+                                aria-label="分享链接"
+                                icon={<FiShare2 />}
                                 size="sm"
                                 colorScheme="blue"
-                                onClick={() => handleCopyLink(file)}
+                                onClick={() => handleShareLink(file)}
                               />
                               {canDeleteFile && (
                                 <IconButton
@@ -739,6 +723,13 @@ export default function FileListPage() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* 分享链接模态框 */}
+      <ShareLinkModal 
+        isOpen={isShareModalOpen} 
+        onClose={handleCloseShareModal} 
+        file={shareFile} 
+      />
     </Container>
   );
 } 
