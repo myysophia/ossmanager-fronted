@@ -722,7 +722,7 @@ export default function UploadPage() {
             await apiClient.delete(`/oss/files/${duplicateCheck.existing_file.id}`);
             toast({
               title: '原文件已删除',
-              description: `正在上传新的 "${file.file.name}"`，
+              description: `正在上传新的 "${file.file.name}"`
               status: 'info',
               duration: 2000,
               isClosable: true,

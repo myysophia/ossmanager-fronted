@@ -39,14 +39,14 @@ interface ShareLinkModalProps {
 }
 
 const EXPIRE_OPTIONS = [
-  { value: '1', label: '1小时', description: '适合临时分享' },
-  { value: '2', label: '2小时', description: '短期分享' },
-  { value: '3', label: '3小时', description: '半日分享' },
-  { value: '6', label: '6小时', description: '工作日分享' },
-  { value: '12', label: '12小时', description: '一日分享' },
-  { value: '24', label: '24小时', description: '一天分享' },
-  { value: '48', label: '48小时', description: '两天分享' },
-  { value: '0', label: '永不过期', description: '长期有效，建议谨慎使用' },
+  { value: '1', label: '1小时' },
+  { value: '2', label: '2小时' },
+  { value: '3', label: '3小时' },
+  { value: '6', label: '6小时' },
+  { value: '12', label: '12小时' },
+  { value: '24', label: '24小时' },
+  { value: '48', label: '48小时' },
+  { value: '0', label: '永不过期' },
 ];
 
 export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
@@ -183,12 +183,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
                       {EXPIRE_OPTIONS.map((option) => (
                         <HStack key={option.value} spacing={3}>
                           <Radio value={option.value} colorScheme="blue">
-                            <VStack align="start" spacing={0}>
-                              <Text fontWeight="medium">{option.label}</Text>
-                              <Text fontSize="sm" color="gray.500">
-                                {option.description}
-                              </Text>
-                            </VStack>
+                            <Text fontWeight="medium">{option.label}</Text>
                           </Radio>
                         </HStack>
                       ))}
