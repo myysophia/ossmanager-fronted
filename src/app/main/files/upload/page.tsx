@@ -152,6 +152,7 @@ export default function UploadPage() {
   const [buckets, setBuckets] = useState<BucketAccess[]>([]);
   const [selectedBucketId, setSelectedBucketId] = useState<number | null>(null);
   const [bucketsLoading, setBucketsLoading] = useState(true);
+  const [customPath, setCustomPath] = useState<string>('');
   const toast = useToast();
 
   useEffect(() => {
@@ -244,7 +245,16 @@ export default function UploadPage() {
   };
 
   const removeFile = (id: string) => {
-    setFiles(files.filter(file => file.id !== id));
+    const fileToRemove = files.find(file => file.id === id);
+    if (!fileToRemove) return;
+    
+    const confirmed = window.confirm(
+      `确定要从上传列表中移除文件 "${fileToRemove.file.name}" 吗？`
+    );
+    
+    if (confirmed) {
+      setFiles(files.filter(file => file.id !== id));
+    }
   };
 
   // 初始化上传任务，获取task_id
@@ -614,6 +624,31 @@ export default function UploadPage() {
     }
   };
 
+  // 检查重复文件
+  const checkDuplicateFile = async (filename: string, bucketInfo: any) => {
+    try {
+      const params: any = {
+        filename: filename,
+        region_code: bucketInfo.region_code,
+        bucket_name: bucketInfo.bucket_name
+      };
+      
+      // 如果有自定义路径，添加到参数中
+      if (customPath.trim()) {
+        params.custom_path = customPath.trim();
+      }
+      
+      const response = await apiClient.get('/oss/files/check-duplicate', {
+        params
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('检查重复文件失败:', error);
+      return { exists: false };
+    }
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast({
@@ -642,6 +677,7 @@ export default function UploadPage() {
       
       let eventSource: EventSource | null = null;
       let fakeProgressInterval: NodeJS.Timeout | null = null; // 🔧 提升作用域
+      let duplicateCheck = { exists: false }; // 🔧 提升作用域，初始化默认值
       
       try {
         const startTime = Date.now();
@@ -659,6 +695,43 @@ export default function UploadPage() {
           backendProgress: 0,
           progressSource: 'frontend' as const
         } : f));
+        
+        // 1.5. 检查重复文件
+        duplicateCheck = await checkDuplicateFile(file.file.name, selectedBucket);
+        if (duplicateCheck.exists) {
+          // 文件已存在，提示用户确认
+          const confirmed = window.confirm(
+            `文件 "${file.file.name}" 已存在。\n` +
+            `原文件上传于: ${new Date(duplicateCheck.existing_file.created_at).toLocaleString()}\n` +
+            `文件大小: ${formatFileSize(duplicateCheck.existing_file.file_size)}\n\n` +
+            `继续上传将覆盖原文件，是否继续？`
+          );
+          
+          if (!confirmed) {
+            // 用户取消上传
+            setFiles(prev => prev.map(f => f.id === file.id ? {
+              ...f,
+              status: 'error' as const,
+              error: '用户取消上传'
+            } : f));
+            return;
+          }
+          
+          // 用户确认覆盖，先删除旧文件
+          try {
+            await apiClient.delete(`/oss/files/${duplicateCheck.existing_file.id}`);
+            toast({
+              title: '原文件已删除',
+              description: `正在上传新的 "${file.file.name}"`，
+              status: 'info',
+              duration: 2000,
+              isClosable: true,
+            });
+          } catch (deleteError) {
+            console.error('删除旧文件失败:', deleteError);
+            // 继续上传，让后端处理覆盖
+          }
+        }
 
         // 2. 初始化上传任务，获取task_id
         const taskId = await initUploadTask(file.file.size);
@@ -818,8 +891,18 @@ export default function UploadPage() {
           region_code: selectedBucket.region_code,
           bucket_name: selectedBucket.bucket_name,
         };
+        
+        // 如果用户指定了自定义路径，添加到headers中
+        if (customPath.trim()) {
+          headers['X-Custom-Path'] = customPath.trim();
+        }
         if (token) headers['Authorization'] = `Bearer ${token}`;
         if (taskId) headers['Upload-Task-ID'] = taskId;
+        
+        // 如果检测到重复文件且用户确认覆盖，设置覆盖标志
+        if (duplicateCheck.exists) {
+          headers['X-Force-Overwrite'] = 'true';
+        }
         
         console.log('设置上传Headers:', {
           'Content-Length': headers['Content-Length'],
@@ -986,6 +1069,19 @@ export default function UploadPage() {
               </VStack>
             </Alert>
           )}
+        </FormControl>
+
+        {/* 自定义存储路径 */}
+        <FormControl>
+          <FormLabel>存储路径 (可选)</FormLabel>
+          <Input
+            value={customPath}
+            onChange={(e) => setCustomPath(e.target.value)}
+            placeholder="自定义/文件夹/路径"
+          />
+          <Text fontSize="xs" color="gray.500" mt={1}>
+            留空则存储到根目录，支持多级目录如：文档/图片/2024
+          </Text>
         </FormControl>
 
         {/* <FormControl>
