@@ -26,11 +26,15 @@ import {
   AlertIcon,
   Box,
   Divider,
+  Image,
+  Center,
+  Flex,
 } from '@chakra-ui/react';
-import { CopyIcon, CheckIcon } from '@chakra-ui/icons';
+import { CopyIcon, CheckIcon, DownloadIcon } from '@chakra-ui/icons';
 import { useState, useEffect } from 'react';
 import { FileAPI } from '../lib/api';
 import { OSSFile } from '../lib/api/types';
+import QRCode from 'qrcode';
 
 interface ShareLinkModalProps {
   isOpen: boolean;
@@ -60,6 +64,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
   const [isGenerated, setIsGenerated] = useState(false);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [neverExpires, setNeverExpires] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   
   const { hasCopied, onCopy } = useClipboard(shareUrl);
   const toast = useToast();
@@ -71,6 +76,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
     setIsGenerated(false);
     setExpiresAt(null);
     setNeverExpires(false);
+    setQrCodeDataUrl('');
   };
 
   // 当模态框关闭时重置状态
@@ -93,6 +99,22 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
         setShareUrl(response.download_url);
         setNeverExpires(response.never_expires || false);
         setExpiresAt(response.expires || null);
+        
+        // 生成二维码
+        try {
+          const qrDataUrl = await QRCode.toDataURL(response.download_url, {
+            width: 200,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          setQrCodeDataUrl(qrDataUrl);
+        } catch (qrError) {
+          console.error('生成二维码失败:', qrError);
+        }
+        
         setIsGenerated(true);
         
         toast({
@@ -128,6 +150,26 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
     });
   };
 
+  // 下载二维码
+  const downloadQRCode = () => {
+    if (!qrCodeDataUrl || !file) return;
+    
+    const link = document.createElement('a');
+    link.download = `${file.original_filename}_qrcode.png`;
+    link.href = qrCodeDataUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: '二维码已下载',
+      description: '二维码图片已保存到本地',
+      status: 'success',
+      duration: 2000,
+      isClosable: true,
+    });
+  };
+
   // 格式化过期时间显示
   const formatExpiresAt = (expiresAt: string | null, neverExpires: boolean) => {
     if (neverExpires) {
@@ -152,7 +194,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} size="xl">
       <ModalOverlay />
       <ModalContent>
         <ModalHeader>分享文件链接</ModalHeader>
@@ -228,6 +270,52 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
                     </InputRightElement>
                   </InputGroup>
                 </Box>
+
+                {/* 二维码分享区域 */}
+                {qrCodeDataUrl && (
+                  <Box>
+                    <Text mb={3} fontWeight="medium">扫码下载</Text>
+                    <Flex direction={{ base: 'column', md: 'row' }} gap={4} align="center">
+                      {/* 二维码图片 */}
+                      <Center>
+                        <Box 
+                          p={3} 
+                          bg="white" 
+                          borderRadius="lg" 
+                          boxShadow="md"
+                          border="1px solid"
+                          borderColor="gray.200"
+                        >
+                          <Image 
+                            src={qrCodeDataUrl} 
+                            alt="文件下载二维码" 
+                            width="160px" 
+                            height="160px"
+                          />
+                        </Box>
+                      </Center>
+                      
+                      {/* 二维码说明和操作 */}
+                      <VStack align="start" spacing={2} flex="1">
+                        <Text fontSize="sm" color="gray.600">
+                          🔍 使用手机扫描二维码即可直接下载文件
+                        </Text>
+                        <Text fontSize="xs" color="gray.500">
+                          支持微信、支付宝、浏览器等扫码工具
+                        </Text>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          colorScheme="blue"
+                          leftIcon={<DownloadIcon />}
+                          onClick={downloadQRCode}
+                        >
+                          下载二维码
+                        </Button>
+                      </VStack>
+                    </Flex>
+                  </Box>
+                )}
 
                 {/* 过期时间信息 */}
                 <Box p={3} bg="blue.50" borderRadius="md">
