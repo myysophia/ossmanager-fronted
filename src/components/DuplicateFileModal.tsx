@@ -28,6 +28,7 @@ interface DuplicateFileInfo {
   file_size: number;
   created_at: string;
   object_key: string;
+  path?: string;
 }
 
 interface DuplicateFileModalProps {
@@ -151,6 +152,18 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
                         {formatDate(existingFile.created_at)}
                       </Text>
                     </HStack>
+                    
+                    {/* 显示文件路径信息 */}
+                    {existingFile.path && (
+                      <HStack>
+                        <Icon as={FiFile} boxSize={4} color="gray.500" />
+                        <Text color="gray.600">存储路径：</Text>
+                        <Text fontWeight="medium" fontSize="xs" fontFamily="monospace" 
+                              bg="gray.100" px={2} py={1} borderRadius="md">
+                          /{existingFile.path}/
+                        </Text>
+                      </HStack>
+                    )}
                   </VStack>
                 </Box>
               </Box>
@@ -164,7 +177,12 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
                 是否继续上传并覆盖原文件？
               </Text>
               <Text fontSize="sm" color="gray.600">
-                请仔细确认，覆盖操作无法撤销。如果您不确定，建议取消上传并重命名文件。
+                请仔细确认，覆盖操作无法撤销。
+                {existingFile?.path 
+                  ? `新文件将覆盖位于 "${existingFile.path}" 路径下的同名文件。` 
+                  : "新文件将覆盖根目录下的同名文件。"
+                }
+                如果您不确定，建议取消上传并重命名文件或选择不同的存储路径。
               </Text>
             </Box>
           </VStack>
