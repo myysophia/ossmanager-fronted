@@ -82,8 +82,8 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
 
-  // 移除 standalone 配置，因为它与 next start 不兼容
-  // output: 'standalone', // 注释掉这行
+  // 启用 standalone 输出，用于 Docker 部署
+  output: 'standalone',
 };
 
 export default nextConfig;
