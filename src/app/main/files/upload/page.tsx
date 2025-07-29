@@ -30,6 +30,7 @@ import { FiUpload, FiX, FiPlus } from 'react-icons/fi';
 import { FileAPI } from '@/lib/api';
 import { BucketService, BucketAccess } from '@/lib/data/bucket';
 import apiClient from '@/lib/api/axios';
+import DuplicateFileModal from '@/components/DuplicateFileModal';
 
 interface UploadFile {
   id: string;
@@ -153,6 +154,13 @@ export default function UploadPage() {
   const [selectedBucketId, setSelectedBucketId] = useState<number | null>(null);
   const [bucketsLoading, setBucketsLoading] = useState(true);
   const [customPath, setCustomPath] = useState<string>('');
+  
+  // 重复文件确认相关状态
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [duplicateFileInfo, setDuplicateFileInfo] = useState<any>(null);
+  const [currentUploadFile, setCurrentUploadFile] = useState<UploadFile | null>(null);
+  const [uploadResolve, setUploadResolve] = useState<((confirmed: boolean) => void) | null>(null);
+  
   const toast = useToast();
 
   useEffect(() => {
@@ -649,6 +657,61 @@ export default function UploadPage() {
     }
   };
 
+  // 显示重复文件确认对话框
+  const showDuplicateConfirmDialog = (file: UploadFile, duplicateInfo: any): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setDuplicateFileInfo(duplicateInfo);
+      setCurrentUploadFile(file);
+      setUploadResolve(() => resolve);
+      setDuplicateModalOpen(true);
+    });
+  };
+
+  // 处理重复文件确认对话框的确认操作
+  const handleDuplicateConfirm = async () => {
+    setDuplicateModalOpen(false);
+    
+    // 先删除旧文件
+    if (duplicateFileInfo?.existing_file?.id) {
+      try {
+        await apiClient.delete(`/oss/files/${duplicateFileInfo.existing_file.id}`);
+        toast({
+          title: '原文件已删除',
+          description: `正在上传新的 "${currentUploadFile?.file.name}"`,
+          status: 'info',
+          duration: 2000,
+          isClosable: true,
+        });
+      } catch (deleteError) {
+        console.error('删除旧文件失败:', deleteError);
+        // 继续上传，让后端处理覆盖
+      }
+    }
+    
+    if (uploadResolve) {
+      uploadResolve(true);
+    }
+    
+    // 重置状态
+    setDuplicateFileInfo(null);
+    setCurrentUploadFile(null);
+    setUploadResolve(null);
+  };
+
+  // 处理重复文件确认对话框的取消操作
+  const handleDuplicateCancel = () => {
+    setDuplicateModalOpen(false);
+    
+    if (uploadResolve) {
+      uploadResolve(false);
+    }
+    
+    // 重置状态
+    setDuplicateFileInfo(null);
+    setCurrentUploadFile(null);
+    setUploadResolve(null);
+  };
+
   const handleUpload = async () => {
     if (files.length === 0) {
       toast({
@@ -699,13 +762,8 @@ export default function UploadPage() {
         // 1.5. 检查重复文件
         duplicateCheck = await checkDuplicateFile(file.file.name, selectedBucket);
         if (duplicateCheck.exists) {
-          // 文件已存在，提示用户确认
-          const confirmed = window.confirm(
-            `文件 "${file.file.name}" 已存在。\n` +
-            `原文件上传于: ${new Date(duplicateCheck.existing_file.created_at).toLocaleString()}\n` +
-            `文件大小: ${formatFileSize(duplicateCheck.existing_file.file_size)}\n\n` +
-            `继续上传将覆盖原文件，是否继续？`
-          );
+          // 文件已存在，使用现代化对话框询问用户
+          const confirmed = await showDuplicateConfirmDialog(file, duplicateCheck);
           
           if (!confirmed) {
             // 用户取消上传
@@ -717,20 +775,7 @@ export default function UploadPage() {
             return;
           }
           
-          // 用户确认覆盖，先删除旧文件
-          try {
-            await apiClient.delete(`/oss/files/${duplicateCheck.existing_file.id}`);
-            toast({
-              title: '原文件已删除',
-              description: `正在上传新的 "${file.file.name}"`
-              status: 'info',
-              duration: 2000,
-              isClosable: true,
-            });
-          } catch (deleteError) {
-            console.error('删除旧文件失败:', deleteError);
-            // 继续上传，让后端处理覆盖
-          }
+          // 用户确认覆盖的处理已在 handleDuplicateConfirm 中进行
         }
 
         // 2. 初始化上传任务，获取task_id
@@ -1228,6 +1273,15 @@ export default function UploadPage() {
           开始上传
         </Button>
       </VStack>
+      
+      {/* 重复文件确认对话框 */}
+      <DuplicateFileModal
+        isOpen={duplicateModalOpen}
+        onClose={handleDuplicateCancel}
+        onConfirm={handleDuplicateConfirm}
+        newFile={currentUploadFile?.file}
+        existingFile={duplicateFileInfo?.existing_file}
+      />
     </Container>
   );
 }
