@@ -34,8 +34,7 @@ interface DuplicateFileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  fileName: string;
-  newFileSize: number;
+  newFile?: File;
   existingFile?: DuplicateFileInfo;
 }
 
@@ -64,13 +63,12 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
-  fileName,
-  newFileSize,
+  newFile,
   existingFile,
 }) => {
   const handleConfirm = () => {
     onConfirm();
-    onClose();
+    // onClose() 由 onConfirm 在上传页面中处理
   };
 
   const handleCancel = () => {
@@ -102,14 +100,13 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
               </VStack>
             </Alert>
 
-            {/* 文件信息对比 */}
-            <Box>
-              <Text fontSize="lg" fontWeight="bold" mb={4} color="gray.700">
-                文件信息对比
-              </Text>
-              
-              <VStack spacing={4}>
-                {/* 原文件信息 */}
+            {/* 即将被覆盖的文件信息 */}
+            {existingFile && (
+              <Box>
+                <Text fontSize="lg" fontWeight="bold" mb={4} color="gray.700">
+                  即将被覆盖的文件
+                </Text>
+                
                 <Box 
                   w="full" 
                   p={4} 
@@ -135,59 +132,7 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
                       <Icon as={FiFile} boxSize={4} color="gray.500" />
                       <Text color="gray.600">文件名：</Text>
                       <Text fontWeight="medium" wordBreak="break-all">
-                        {existingFile?.original_filename || fileName}
-                      </Text>
-                    </HStack>
-                    
-                    {existingFile && (
-                      <>
-                        <HStack>
-                          <Icon as={FiHardDrive} boxSize={4} color="gray.500" />
-                          <Text color="gray.600">大小：</Text>
-                          <Text fontWeight="medium">
-                            {formatFileSize(existingFile.file_size)}
-                          </Text>
-                        </HStack>
-                        
-                        <HStack>
-                          <Icon as={FiClock} boxSize={4} color="gray.500" />
-                          <Text color="gray.600">上传时间：</Text>
-                          <Text fontWeight="medium">
-                            {formatDate(existingFile.created_at)}
-                          </Text>
-                        </HStack>
-                      </>
-                    )}
-                  </VStack>
-                </Box>
-
-                {/* 新文件信息 */}
-                <Box 
-                  w="full" 
-                  p={4} 
-                  bg="green.50" 
-                  borderRadius="md"
-                  borderLeft="4px solid"
-                  borderLeftColor="green.400"
-                >
-                  <HStack justify="space-between" mb={2}>
-                    <HStack>
-                      <Icon as={FiFile} color="green.500" />
-                      <Text fontWeight="semibold" color="green.700">
-                        新文件（即将上传）
-                      </Text>
-                    </HStack>
-                    <Badge colorScheme="green" variant="subtle">
-                      新上传
-                    </Badge>
-                  </HStack>
-                  
-                  <VStack align="start" spacing={2} fontSize="sm">
-                    <HStack>
-                      <Icon as={FiFile} boxSize={4} color="gray.500" />
-                      <Text color="gray.600">文件名：</Text>
-                      <Text fontWeight="medium" wordBreak="break-all">
-                        {fileName}
+                        {existingFile.original_filename}
                       </Text>
                     </HStack>
                     
@@ -195,7 +140,7 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
                       <Icon as={FiHardDrive} boxSize={4} color="gray.500" />
                       <Text color="gray.600">大小：</Text>
                       <Text fontWeight="medium">
-                        {formatFileSize(newFileSize)}
+                        {formatFileSize(existingFile.file_size)}
                       </Text>
                     </HStack>
                     
@@ -203,13 +148,13 @@ export const DuplicateFileModal: React.FC<DuplicateFileModalProps> = ({
                       <Icon as={FiClock} boxSize={4} color="gray.500" />
                       <Text color="gray.600">上传时间：</Text>
                       <Text fontWeight="medium">
-                        现在
+                        {formatDate(existingFile.created_at)}
                       </Text>
                     </HStack>
                   </VStack>
                 </Box>
-              </VStack>
-            </Box>
+              </Box>
+            )}
 
             <Divider />
 

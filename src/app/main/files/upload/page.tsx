@@ -671,22 +671,8 @@ export default function UploadPage() {
   const handleDuplicateConfirm = async () => {
     setDuplicateModalOpen(false);
     
-    // 先删除旧文件
-    if (duplicateFileInfo?.existing_file?.id) {
-      try {
-        await apiClient.delete(`/oss/files/${duplicateFileInfo.existing_file.id}`);
-        toast({
-          title: '原文件已删除',
-          description: `正在上传新的 "${currentUploadFile?.file.name}"`,
-          status: 'info',
-          duration: 2000,
-          isClosable: true,
-        });
-      } catch (deleteError) {
-        console.error('删除旧文件失败:', deleteError);
-        // 继续上传，让后端处理覆盖
-      }
-    }
+    // 用户确认覆盖，不在这里删除旧文件，让后端在上传时处理覆盖
+    // 这样可以避免删除了旧文件但新文件上传失败的情况
     
     if (uploadResolve) {
       uploadResolve(true);
