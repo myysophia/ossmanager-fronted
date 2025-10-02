@@ -124,7 +124,7 @@ export default function AdminPage() {
 
   const fetchRoles = async () => {
     try {
-      const response = await fetch('/api/admin/roles');
+      const response = await etch('/api/admin/crm/role');
       if (!response.ok) {
         throw new Error('获取角色列表失败');
       }
@@ -143,7 +143,7 @@ export default function AdminPage() {
 
   const fetchPermissions = async () => {
     try {
-      const response = await fetch('/api/admin/permissions');
+      const response = await fetch('/api/admin/crm/permission');
       if (!response.ok) {
         throw new Error('获取权限列表失败');
       }
