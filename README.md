@@ -1,4 +1,5 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+对象存储服务(OSS)文件管理系统的前端服务，支持阿里云OSS、AWS S3、CloudFlare R2等多种对象存储服务。
+<img width="1505" alt="image" src="https://github.com/user-attachments/assets/e8ee8093-c02e-4f38-babd-b042e25c6c15" />
 
 ## Getting Started
 

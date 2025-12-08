@@ -91,7 +91,7 @@ export default function SettingsPage() {
   const [systemConfig, setSystemConfig] = useState<LocalSystemConfig>({
     siteName: '',
     description: '',
-    maxFileSize: 100,
+    maxFileSize: 5120,
     allowedFileTypes: [],
     maxUploadConcurrency: 5,
     enableRegistration: false,
@@ -290,7 +290,7 @@ export default function SettingsPage() {
     try {
       await AdminAPI.updateSystemConfig({
         site_name: systemConfig.siteName,
-        site_description: systemConfig.description,
+        description: systemConfig.description,
         max_file_size: systemConfig.maxFileSize,
         allowed_file_types: systemConfig.allowedFileTypes,
         enable_registration: systemConfig.enableRegistration,

@@ -3,7 +3,7 @@ import apiClient from '../api/axios';
 
 export interface SystemConfig {
   site_name: string;
-  site_description: string;
+  description: string;
   logo_url: string;
   max_file_size: number;
   allowed_file_types: string[];

@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import { ApiResponse, FileDownloadResponse, FileQueryParams, MultipartCompleteParams, MultipartInitResponse, OSSFile, PageResponse } from './types';
+import { ApiResponse, FileDownloadResponse, FileQueryParams, FileUploadResponse, MultipartCompleteParams, MultipartInitResponse, OSSFile, PageResponse } from './types';
 
 /**
  * OSS文件相关API服务
@@ -17,31 +17,31 @@ export const FileAPI = {
 
   /**
    * 上传文件
-   * @param file 文件对象
-   * @param storageType 存储类型
+   * @param file 文件对象或 FormData
+   * @param options 额外header参数
    * @returns 上传成功的文件信息
    */
-  uploadFile: async (file: File, storageType?: string): Promise<OSSFile> => {
-    // 创建 FormData 对象
-    const formData = new FormData();
-    
-    // 按照 curl 命令格式设置文件
-    formData.append('file', file);
-    
-    // 打印 FormData 内容进行调试
-    console.log('准备上传的文件信息:', {
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type
+  uploadFile: async (
+    file: File | FormData,
+    options?: { regionCode?: string; bucketName?: string }
+  ): Promise<FileUploadResponse> => {
+    const formData = file instanceof FormData ? file : (() => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return fd;
+    })();
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'multipart/form-data',
+    };
+    if (options?.regionCode) headers['region_code'] = options.regionCode;
+    if (options?.bucketName) headers['bucket_name'] = options.bucketName;
+
+    const response = await apiClient.post<ApiResponse<FileUploadResponse>>('/oss/files', formData, {
+      headers,
     });
 
-    const response = await apiClient.post<ApiResponse<OSSFile>>('/oss/files', formData, {
-      headers: {
-        'Accept': '*/*',
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    // if (response.data.code !== 200) {
+    // if (!response.data?.data) {
     //   throw new Error('上传响应为空');
     // }
 
@@ -94,10 +94,15 @@ export const FileAPI = {
   /**
    * 获取文件下载链接
    * @param id 文件ID
+   * @param expireHours 过期时间（小时），支持1,2,3,6,12,24,48，0表示永不过期
    * @returns 下载链接和过期时间
    */
-  getFileDownloadURL: async (id: number): Promise<FileDownloadResponse> => {
-    const response = await apiClient.get<ApiResponse<FileDownloadResponse>>(`/oss/files/${id}/download`);
+  getFileDownloadURL: async (id: number, expireHours?: number): Promise<FileDownloadResponse> => {
+    const params: any = {};
+    if (expireHours !== undefined) {
+      params.expire_hours = expireHours;
+    }
+    const response = await apiClient.get<ApiResponse<FileDownloadResponse>>(`/oss/files/${id}/download`, { params });
     return response.data as unknown as FileDownloadResponse;
   },
 

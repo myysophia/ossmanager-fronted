@@ -2,6 +2,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useCallback, useEffect } from 'react';
 import { AuthAPI, User, LoginParams, RegisterParams } from '../api';
 import { createStandaloneToast } from '@chakra-ui/react';
+import { handleTokenExpired, isAuthError } from '../utils/auth';
 
 const { toast } = createStandaloneToast();
 
@@ -32,7 +33,13 @@ export const useAuth = () => {
           // 更新本地存储
           localStorage.setItem('user', JSON.stringify(currentUser));
         } catch (error) {
-          // 如果获取失败，可能是token过期
+          // 如果是认证错误，清除本地存储并重定向
+          if (isAuthError(error)) {
+            setUser(null);
+            handleTokenExpired();
+            return;
+          }
+          // 其他错误，使用缓存的用户信息
           setUser(storedUser);
         }
       } else {

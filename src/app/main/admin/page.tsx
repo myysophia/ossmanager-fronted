@@ -15,7 +15,8 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { useRouter } from 'next/navigation';
-import { FiList, FiUser } from 'react-icons/fi';
+import { FiList, FiUser, FiLock } from 'react-icons/fi';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 interface AdminCard {
   title: string;
@@ -24,7 +25,7 @@ interface AdminCard {
   path: string;
 }
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
@@ -35,6 +36,12 @@ export default function AdminPage() {
       description: '管理系统用户、角色和权限分配',
       icon: <Icon as={FiUser} boxSize={10} color="purple.500" />,
       path: '/main/admin/users',
+    },
+    {
+      title: '角色管理',
+      description: '管理系统角色和权限配置',
+      icon: <Icon as={FiLock} boxSize={10} color="blue.500" />,
+      path: '/main/admin/roles',
     },
     {
       title: '审计日志',
@@ -83,5 +90,13 @@ export default function AdminPage() {
         ))}
       </SimpleGrid>
     </Container>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <ProtectedRoute requireManager>
+      <AdminPageContent />
+    </ProtectedRoute>
   );
 } 

@@ -1,5 +1,6 @@
 import apiClient from './axios';
 import { ApiResponse, LoginParams, LoginResponse, RegisterParams, User } from './types';
+import { handleTokenExpired } from '../utils/auth';
 
 /**
  * 认证相关API服务
@@ -40,6 +41,11 @@ export const AuthAPI = {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       
+      // 同时设置cookie以供middleware使用
+      // 设置为httpOnly=false以便JS可以访问，secure在生产环境中为true
+      const isProduction = process.env.NODE_ENV === 'production';
+      document.cookie = `token=${token}; path=/; ${isProduction ? 'secure;' : ''} samesite=strict; max-age=86400`;
+      
       return loginData;
     } catch (error: any) {
       console.error('登录失败:', error);
@@ -77,10 +83,14 @@ export const AuthAPI = {
    * @returns 成功响应
    */
   logout: async (): Promise<void> => {
-    await apiClient.post<ApiResponse>('/auth/logout');
-    // 清除本地存储的token和用户信息
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    try {
+      await apiClient.post<ApiResponse>('/auth/logout');
+    } catch (error) {
+      // 即使服务器请求失败，也要清除本地存储
+      console.warn('服务器登出请求失败，但仍会清除本地认证信息:', error);
+    }
+    // 使用统一的令牌清理函数
+    handleTokenExpired();
   },
 
   /**
